@@ -15,6 +15,14 @@ export async function loadEntries(userId, day) {
   return data || [];
 }
 
+/** 여러 날의 기록 (from ~ to, 둘 다 포함) — 되살리기·꺼내기가 지난 문장을 찾을 때 */
+export async function loadEntriesRange(userId, from, to) {
+  const { data, error } = await supabase
+    .from("alltag_entries").select(COLS).eq("user_id", userId).gte("day", from).lte("day", to).order("created_at");
+  if (error) throw new Error(error.message);
+  return data || [];
+}
+
 /** id 가 있으면 고치고, 없으면 새로 만든다. 저장된 줄을 돌려준다. */
 export async function saveEntry(userId, entry) {
   const row = {

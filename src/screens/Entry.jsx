@@ -14,6 +14,7 @@ import { listen, stopListening, supported, appendSpoken } from "../lib/speech";
 import { loadEntries, saveEntry, deleteEntry, loadDraft, saveDraft, peekLegacyDraft, clearLegacyDraft } from "../lib/entryRepo";
 import Correction from "../components/Correction";
 import FieldInput from "../components/FieldInput";
+import Revive from "../components/Revive";
 
 const hhmm = (iso) => new Date(iso).toLocaleTimeString("ko-KR", { hour: "2-digit", minute: "2-digit" });
 
@@ -208,6 +209,8 @@ export default function Entry({ program, today, userId, onPatch, onError }) {
         </div>
       )}
       {micMsg && <div className="notice error" onClick={() => setMicMsg("")}>{micMsg}</div>}
+
+      {!edit.id && <Revive userId={userId} today={today} onResult={(r) => setPart("revive", r)} />}
 
       {form.fields.map((f) => (
         <FieldInput

@@ -98,3 +98,12 @@
 .cr-tags { display: flex; flex-wrap: wrap; gap: 4px; align-items: center; }
 .cr-tags span:not(.muted) { font-size: 11.5px; padding: 1px 7px; border-radius: 999px; border: 1px solid var(--border); color: var(--muted); }
 .cr-links { display: flex; flex-direction: column; gap: 6px; }
+.cr-missing { display: flex; align-items: center; justify-content: space-between; gap: 10px; flex-wrap: wrap; font-size: 13.5px; }
+
+/* ⑤ 새 단어 → DE 내 단어 */
+.cr-words { margin-top: 6px; display: flex; flex-direction: column; gap: 6px; }
+.cr-words ul { list-style: none; display: flex; flex-direction: column; gap: 5px; }
+.cr-words li { display: flex; align-items: center; gap: 8px; padding: 7px 10px; border-radius: 10px; background: var(--cream); font-size: 14px; }
+.cr-words li b { font-family: var(--font-de); }
+.cr-words li .muted { flex: 1; min-width: 0; font-size: 13px; }
+.cr-have { font-size: 12px; font-weight: 700; color: var(--green); white-space: nowrap; }

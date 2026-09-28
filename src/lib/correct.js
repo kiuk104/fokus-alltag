@@ -34,6 +34,9 @@ export function correctionPrompt({ text, month, tplTitle, korean }) {
 - "keep": 오늘 외울 문장 정확히 3개. 학습자의 실제 상황에서 나온 자연스러운 B2 문장. 각각
   { "de": 독일어 문장, "ko": 자연스러운 한국어 뜻, "grammar": 위 key 중 하나 또는 "", "topic": 독일어 주제 명사 한 단어(예: Parkplatz, Lieferung, Kunde),
     "category": 다음 중 하나 — ${CATEGORIES.join(" | ")} }
+- "words": b1·b2·keep 에 나온 단어 중 B1 학습자가 **새로 배울 만한** 단어 최대 5개 (기본 단어·고유명사 제외). 각각
+  { "de": 관사 없는 기본형(명사는 단수 1격, 동사는 부정형), "article": 명사면 "der"|"die"|"das", 아니면 "",
+    "ko": 한국어 뜻, "en": 영어 뜻 한두 단어, "level": "B1"|"B2" }. 없으면 [].
 - "errorTypes": 틀린 유형 이름 (독일어 한두 단어: Artikel, Verbstellung, Präposition, Kasus, Wortwahl, Rechtschreibung, Zeitform …). 없으면 [].`;
 
   if (korean) {
@@ -144,6 +147,7 @@ export function normalizeCorrection(raw, { text = "" } = {}) {
     grammar,
     keep,
     keywords: arr(raw?.keywords).map((w) => ({ de: str(w?.de), ko: str(w?.ko) })).filter((w) => w.de).slice(0, 6),
+    words: normalizeWords(raw?.words),
     errorTypes: arr(raw?.errorTypes).map(str).filter(Boolean).slice(0, 6),
   };
 }
@@ -186,6 +190,24 @@ export function selfFixed(mine, fix) {
   if (!m) return false;
   return m.includes(to) && (to.includes(from) || !m.includes(from));
 }
+
+/** 새 단어 — 관사가 de 에 붙어 와도 떼어 article 로 옮긴다 */
+export function normalizeWords(list) {
+  const seen = new Set();
+  return arr(list)
+    .map((w) => {
+      let de = str(w?.de).replace(/[.,;:!?]+$/, "");
+      let article = ["der", "die", "das"].includes(str(w?.article).toLowerCase()) ? str(w.article).toLowerCase() : "";
+      const m = /^(der|die|das)\s+(.+)$/i.exec(de);
+      if (m) { article = article || m[1].toLowerCase(); de = m[2]; }
+      return { de, article, ko: str(w?.ko), en: str(w?.en), level: ["A1", "A2", "B1", "B2", "C1"].includes(str(w?.level)) ? str(w.level) : "B2" };
+    })
+    .filter((w) => w.de && !w.de.includes(" ") && (w.ko || w.en) && !seen.has(w.de.toLowerCase()) && seen.add(w.de.toLowerCase()))
+    .slice(0, 5);
+}
+
+/** 단어 비교 열쇠 — 소문자 · ß=ss · 관사 뗌 */
+export const wordKey = (de) => String(de || "").toLowerCase().replace(/^(der|die|das)\s+/, "").replace(/ß/g, "ss").trim();
 
 /** 자기 설명 응답 */
 export function normalizeExplain(raw) {

@@ -40,7 +40,7 @@ export function tokens(text) {
   return out;
 }
 
-function lev(a, b) {
+export function lev(a, b) {
   if (a === b) return 0;
   if (Math.abs(a.length - b.length) > 3) return 99;
   const prev = Array.from({ length: b.length + 1 }, (_, i) => i);

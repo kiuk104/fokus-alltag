@@ -48,7 +48,7 @@ test("정리: 같은 고침·잘못된 키·넷째 문장은 버리고, 정답�
 
 test("정리: 빈 응답도 화면이 쓸 수 있는 모양", () => {
   const c = normalizeCorrection({});
-  assert.deepEqual(c, { b1: { text: "", fixes: [] }, b2: "", native: "", grammar: [], keep: [], keywords: [], errorTypes: [] });
+  assert.deepEqual(c, { b1: { text: "", fixes: [] }, b2: "", native: "", grammar: [], keep: [], keywords: [], words: [], errorTypes: [] });
 });
 
 test("고칠 곳 표시: 원문 순서대로, 겹치지 않게", () => {
@@ -90,4 +90,19 @@ test("b2 · native 가 객체나 배열로 와도 글을 꺼낸다", async () =>
   assert.equal(normalizeCorrection({ B2: "X" }).b2, "X");
   assert.deepEqual(normalizeLevelUp({ b2: " B ", native: { de: "N" } }), { b2: "B", native: "N" });
   assert.equal(textOf(null), "");
+});
+
+test("새 단어 — 관사를 떼고, 구·중복·뜻 없는 것은 버린다", async () => {
+  const { normalizeWords, wordKey } = await import("./correct.js");
+  const w = normalizeWords([
+    { de: "der Parkplatz", ko: "주차장", en: "parking space", level: "B1" },
+    { de: "geeignet", article: "", ko: "적합한", en: "suitable" },
+    { de: "Parkplatz", ko: "중복" },
+    { de: "zur Verfügung stehen", ko: "구" },
+    { de: "Lieferschein", article: "Der", en: "delivery note", level: "C9" },
+    { de: "nichts" },
+  ]);
+  assert.deepEqual(w.map((x) => [x.de, x.article, x.level]), [["Parkplatz", "der", "B1"], ["geeignet", "", "B2"], ["Lieferschein", "der", "B2"]]);
+  assert.equal(wordKey("die Straße"), "strasse");
+  assert.deepEqual(normalizeCorrection({ b1: { text: "x" } }).words, []);
 });

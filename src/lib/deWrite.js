@@ -1,4 +1,5 @@
-// Fokus DE 의 문장 창고(user_sentences)로 외울 문장을 보낸다. 이 앱이 DE 콘텐츠에 쓰는 유일한 곳.
+// Fokus DE 의 문장 창고(user_sentences)로 외울 문장을, 내 단어(custom_words)로 새 단어를 보낸다.
+// 이 앱이 DE 콘텐츠에 쓰는 유일한 곳.
 //
 // ⚠ 가드레일(scripts/check-guardrails.mjs): user_sentences · custom_words 는 이 파일에서만, 그리고 insert 만.
 //    고치기·지우기는 DE·Karten 의 몫이다 — 여기는 "만들어서 보내는" 앱이다.
@@ -9,6 +10,7 @@
 import { supabase } from "./supabase";
 
 import { NOTEBOOK, PROGRAM_TAG, matchTag, tagsFor } from "./tags.js";
+import { wordKey } from "./correct.js";
 
 export { NOTEBOOK, PROGRAM_TAG, matchTag, tagsFor };
 
@@ -46,4 +48,64 @@ export async function insertSentences(userId, rows) {
   const { data, error } = await supabase.from("user_sentences").insert(payload).select("id");
   if (error) throw new Error(error.message);
   return (data || []).map((d) => d.id);
+}
+
+// ── 새 단어 → custom_words (연결 지점 2, CP3) ─────────────────────────────────
+// DE 에 이미 있는 단어는 버튼 대신 ✓. "있다"의 기준은 기본 단어장(generated_words, 읽기만)과 내 단어.
+// 기본 단어장은 크고 잘 안 바뀌니 기기에 사흘 기억해 둔다. 내 단어는 방금 넣은 것도 보여야 하니 매번 읽는다.
+
+const BASE_KEY = "fa-base-words";
+const BASE_TTL = 3 * 86400000;
+
+async function baseWordKeys() {
+  try {
+    const c = JSON.parse(localStorage.getItem(BASE_KEY) || "null");
+    if (c && Date.now() - c.at < BASE_TTL && Array.isArray(c.keys)) return new Set(c.keys);
+  } catch { /* 새로 받는다 */ }
+  const keys = new Set();
+  const PAGE = 500;
+  for (let from = 0; from < 20000; from += PAGE) {
+    const { data, error } = await supabase.from("generated_words").select("words").range(from, from + PAGE - 1);
+    if (error) break;
+    for (const r of data || []) for (const w of r.words || []) {
+      if (w?.de) keys.add(wordKey(w.de));
+      if (w?.stem) keys.add(wordKey(w.stem));
+    }
+    if (!data || data.length < PAGE) break;
+  }
+  try { localStorage.setItem(BASE_KEY, JSON.stringify({ at: Date.now(), keys: [...keys] })); } catch { /* 용량 — 다음에 또 받는다 */ }
+  return keys;
+}
+
+/** DE 에 이미 있는 단어 열쇠들 (wordKey) */
+export async function knownWordKeys(userId) {
+  const [base, mine] = await Promise.all([
+    baseWordKeys().catch(() => new Set()),
+    supabase.from("custom_words").select("de, stem").eq("user_id", userId).limit(5000),
+  ]);
+  const keys = new Set(base);
+  for (const w of mine.data || []) {
+    if (w.de) keys.add(wordKey(w.de));
+    if (w.stem) keys.add(wordKey(w.stem));
+  }
+  return keys;
+}
+
+/** 단어 하나를 내 단어로. 단어장은 문장과 같은 "Alltag" 이라 DE 에서 한곳에 모인다. */
+export async function insertWord(userId, w, { month } = {}) {
+  const row = {
+    user_id: userId,
+    de: w.de.trim(),
+    stem: w.de.trim(),
+    article: ["der", "die", "das"].includes(w.article) ? w.article : null,
+    en: (w.en || "").trim(),
+    ko: (w.ko || "").trim(),
+    level: w.level || "B2",
+    tag: null,
+    notebook: NOTEBOOK,
+    tags: [PROGRAM_TAG, ...(month ? [`M${month}`] : [])],
+  };
+  const { data, error } = await supabase.from("custom_words").insert(row).select("id").single();
+  if (error) throw new Error(error.message);
+  return data.id;
 }

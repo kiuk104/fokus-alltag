@@ -11,8 +11,8 @@
 
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { askClaude, MONTHLY_CAP } from "../lib/ai";
-import { SYSTEM, correctionPrompt, explainPrompt, extractJson, normalizeCorrection, normalizeExplain, markFixes, selfFixed } from "../lib/correct";
-import { loadSentenceTags, tagsFor, insertSentences, NOTEBOOK } from "../lib/deWrite";
+import { SYSTEM, correctionPrompt, explainPrompt, extractJson, normalizeCorrection, normalizeExplain, markFixes, selfFixed, levelUpPrompt, normalizeLevelUp, wordKey } from "../lib/correct";
+import { loadSentenceTags, tagsFor, insertSentences, knownWordKeys, insertWord, NOTEBOOK } from "../lib/deWrite";
 import { patchEntry } from "../lib/entryRepo";
 import { buildPrompt } from "../lib/bridge";
 import { GRAMMAR } from "../lib/program";
@@ -65,6 +65,28 @@ export default function Correction({ entry, userId, month, tplTitle, onEntry, on
     } catch (e) {
       if (e.capped) setCapMsg(e.message);
       else onError("교정 실패: " + e.message);
+    } finally {
+      setBusy("");
+    }
+  };
+
+  // B2 · 원어민 글이 비어 왔으면 그 둘만 다시 받는다 (교정 전체를 다시 하지 않는다)
+  const fillB2 = async () => {
+    setBusy("B2 문장 받는 중…");
+    try {
+      const r = await askClaude(userId, {
+        system: SYSTEM,
+        prompt: levelUpPrompt({ b1: c.data.b1.text || plain(entry.raw_text) }),
+        maxTokens: 800,
+        kind: "alltag-correct",
+      });
+      const got = normalizeLevelUp(extractJson(r.text));
+      if (!got.b2 && !got.native) throw new Error("빈 응답");
+      const correction = { ...c, data: { ...c.data, b2: c.data.b2 || got.b2, native: c.data.native || got.native }, spent: r.spent };
+      onEntry({ ...entry, correction });
+      onEntry(await patchEntry(userId, entry.id, { correction }));
+    } catch (e) {
+      onError(e.capped ? e.message : "B2 문장을 받지 못했어요: " + e.message);
     } finally {
       setBusy("");
     }
@@ -133,14 +155,15 @@ export default function Correction({ entry, userId, month, tplTitle, onEntry, on
 
       {view === 0 && <StepSelf data={data} text={entry.raw_text} korean={korean} prog={prog} onDone={(mine) => go(1, { mine })} />}
       {view === 1 && <StepB1 data={data} korean={korean} prog={prog} onNext={() => go(2)} />}
-      {view === 2 && <StepB2 data={data} prog={prog} onNext={(myB2) => go(3, { myB2 })} />}
+      {view === 2 && <StepB2 data={data} prog={prog} busy={busy} onFill={fillB2} onNext={(myB2) => go(3, { myB2 })} />}
       {view === 3 && (
         <StepExplain data={data} prog={prog} userId={userId} busy={busy} setBusy={setBusy} onError={onError}
           onDone={(explain) => go(4, explain ? { explain } : {})} />
       )}
       {view === 4 && (
         <StepKeep data={data} entry={entry} prog={prog} userId={userId} month={month} onError={onError}
-          onSaved={(ids, keepEdited) => save({ step: 4, view: 4, saved: true, keepEdited }, { saved_sentence_ids: ids })} />
+          onSaved={(ids, keepEdited) => save({ step: 4, view: 4, saved: true, keepEdited }, { saved_sentence_ids: ids })}
+          onWords={(wordsSaved) => save({ wordsSaved })} />
       )}
     </section>
   );
@@ -285,7 +308,7 @@ function StepB1({ data, korean, prog, onNext }) {
 }
 
 // ── ③ B2 · 원어민 ───────────────────────────────────────────────────────────
-function StepB2({ data, prog, onNext }) {
+function StepB2({ data, prog, busy, onFill, onNext }) {
   const [mine, setMine] = useState(prog.myB2 || "");
   const [shown, setShown] = useState(prog.step > 2);
   return (
@@ -304,10 +327,27 @@ function StepB2({ data, prog, onNext }) {
               <p className="cr-text mine" lang="de">{mine}</p>
             </>
           )}
-          <div className="cr-label">B2</div>
-          <p className="cr-text" lang="de">{data.b2}</p>
-          <div className="cr-label">원어민이라면</div>
-          <p className="cr-text native" lang="de">{data.native}</p>
+          {data.b2 || data.native ? (
+            <>
+              {data.b2 && (
+                <>
+                  <div className="cr-label">B2</div>
+                  <p className="cr-text" lang="de">{data.b2}</p>
+                </>
+              )}
+              {data.native && (
+                <>
+                  <div className="cr-label">원어민이라면</div>
+                  <p className="cr-text native" lang="de">{data.native}</p>
+                </>
+              )}
+            </>
+          ) : (
+            <div className="notice soft cr-missing">
+              이번 교정에 B2 문장이 빠져 있어요.
+              <button className="btn small" disabled={!!busy} onClick={onFill}>{busy || "B2 문장 받기"}</button>
+            </div>
+          )}
           <div className="cr-actions"><button className="btn primary" onClick={() => onNext(mine.trim())}>다음: 내 말로 설명</button></div>
         </>
       )}
@@ -374,7 +414,7 @@ function StepExplain({ data, prog, userId, busy, setBusy, onError, onDone }) {
 }
 
 // ── ⑤ 외울 3문장 → Fokus DE ─────────────────────────────────────────────────
-function StepKeep({ data, entry, prog, userId, month, onError, onSaved }) {
+function StepKeep({ data, entry, prog, userId, month, onError, onSaved, onWords }) {
   const [rows, setRows] = useState(() => (prog.keepEdited || data.keep).map((k) => ({ ...k, on: k.on ?? true })));
   const [existing, setExisting] = useState([]);
   const [busy, setBusy] = useState(false);
@@ -425,6 +465,7 @@ function StepKeep({ data, entry, prog, userId, month, onError, onSaved }) {
           <button className="link-btn" onClick={() => openApp(`${DE_URL}/?edit=${first}`)}>문장 보기 <b>Fokus DE</b> ↗</button>
         </div>
         <p className="muted tiny">오늘 🔴 3문장 꺼내기는 이 세 문장으로 — 한국어 뜻만 보고 독일어로 말해 보세요.</p>
+        <NewWords words={data.words} saved={prog.wordsSaved} userId={userId} month={month} onError={onError} onSaved={onWords} />
       </div>
     );
   }
@@ -452,6 +493,61 @@ function StepKeep({ data, entry, prog, userId, month, onError, onSaved }) {
           {busy ? "보내는 중…" : `Fokus DE 로 보내기 (${tagged.filter((r) => r.on).length})`}
         </button>
       </div>
+      <NewWords words={data.words} saved={prog.wordsSaved} userId={userId} month={month} onError={onError} onSaved={onWords} />
+    </div>
+  );
+}
+
+// ── 새 단어 → Fokus DE 내 단어 (연결 지점 2) ────────────────────────────────
+// DE 에 이미 있으면 버튼 대신 ✓. 옛 교정(단어 칸이 생기기 전)에는 아무것도 안 보인다.
+function NewWords({ words, saved = [], userId, month, onError, onSaved }) {
+  const [known, setKnown] = useState(null);
+  const [busy, setBusy] = useState("");
+  const list = words || [];
+
+  useEffect(() => {
+    if (!list.length) return;
+    let alive = true;
+    knownWordKeys(userId).then((k) => alive && setKnown(k)).catch(() => alive && setKnown(new Set()));
+    return () => { alive = false; };
+  }, [userId, list.length]);
+
+  if (!list.length) return null;
+
+  const add = async (w) => {
+    setBusy(w.de);
+    try {
+      await insertWord(userId, w, { month });
+      setKnown((k) => new Set(k).add(wordKey(w.de)));
+      onSaved([...saved, w.de]);
+    } catch (e) {
+      onError("단어 저장 실패: " + e.message);
+    } finally {
+      setBusy("");
+    }
+  };
+
+  return (
+    <div className="cr-words">
+      <div className="cr-label">새 단어 <span className="muted">— 내 단어({NOTEBOOK})에 넣으면 DE·Karten 에서 외워요</span></div>
+      <ul>
+        {list.map((w) => {
+          const have = saved.includes(w.de) || known?.has(wordKey(w.de));
+          return (
+            <li key={w.de}>
+              <span lang="de"><b>{w.article ? `${w.article} ` : ""}{w.de}</b></span>
+              <span className="muted">{w.ko}</span>
+              {have ? (
+                <span className="cr-have">{saved.includes(w.de) ? "✓ 넣음" : "✓ DE 에 있음"}</span>
+              ) : (
+                <button className="btn small" disabled={!known || !!busy} onClick={() => add(w)}>
+                  {busy === w.de ? "…" : known ? "+ 내 단어" : "확인 중"}
+                </button>
+              )}
+            </li>
+          );
+        })}
+      </ul>
     </div>
   );
 }

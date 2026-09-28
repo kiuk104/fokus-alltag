@@ -19,6 +19,7 @@ import Entry from "./screens/Entry";
 import Progress from "./screens/Progress";
 import Settings from "./screens/Settings";
 import Listen from "./screens/Listen";
+import Recall from "./screens/Recall";
 import "./styles/app.css";
 import "./styles/pwa.css"; // 마지막 — 안전영역 여백이 app.css 를 덮어야 한다
 
@@ -34,6 +35,7 @@ export default function App() {
   const [tab, setTab] = useState("today");
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [listenSrc, setListenSrc] = useState(null); // 듣기 화면에 띄운 출처
+  const [recallOpen, setRecallOpen] = useState(false); // 🔴 3문장 꺼내기
   const [appSet, setAppSet] = useState(() => getSettings());
 
   // 자정을 넘겨 켜 둔 앱이 어제를 "오늘"로 보여 주지 않게 — 돌아올 때마다 다시 잰다.
@@ -206,6 +208,7 @@ export default function App() {
           onPatch={patchDay}
           onGoEntry={() => setTab("entry")}
           onListen={setListenSrc}
+          onRecall={() => setRecallOpen(true)}
         />
       )}
       {tab === "entry" && (
@@ -223,6 +226,18 @@ export default function App() {
           row={days.get(today) || {}}
           onPatch={(patch) => patchDay(today, patch)}
           onClose={() => setListenSrc(null)}
+        />
+      )}
+
+      {recallOpen && (
+        <Recall
+          key={today}
+          userId={userId}
+          today={today}
+          done={!!days.get(today)?.repeat}
+          onDone={() => patchDay(today, { repeat: true })}
+          onClose={() => setRecallOpen(false)}
+          onError={setError}
         />
       )}
 

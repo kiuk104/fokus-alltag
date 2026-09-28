@@ -8,6 +8,8 @@
 //      문장을 고치는 곳은 DE·Karten 이다. 여기는 "만들어서 보내는" 앱이다.
 //      넣기는 src/lib/deWrite.js 한 파일에서만(CP2).
 //   ③ ai_usage_log — src/lib/ai.js 한 파일에서만, 넣기와 조회만(CP2).
+//   ④ 기본 단어장(generated_words · word_tags) — 읽기만, deWrite.js 에서(새 단어가 DE 에 이미 있는지 볼 때, CP3).
+//   ⑤ card_meta — src/lib/audio.js 한 파일에서만, upsert 만(발음 붙이기, CP3). 지우기는 DE·Karten 몫.
 
 import { readdirSync, readFileSync, statSync } from "node:fs";
 import { join, extname } from "node:path";
@@ -19,6 +21,8 @@ const RULES = [
   { tables: ["user_srs", "user_progress", "study_events", "study_logs", "user_badges"], file: P("deAdapter.js"), allow: [] },
   { tables: ["user_sentences", "custom_words"], file: P("deWrite.js"), allow: ["insert"] },
   { tables: ["ai_usage_log"], file: P("ai.js"), allow: ["insert"] },
+  { tables: ["generated_words", "word_tags"], file: P("deWrite.js"), allow: ["insert"] }, // deWrite 의 insert 는 문장·단어용
+  { tables: ["card_meta"], file: P("audio.js"), allow: ["upsert"] },
 ];
 
 const WRITE = /\.(insert|update|upsert|delete|rpc)\s*\(/g;

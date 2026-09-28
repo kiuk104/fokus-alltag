@@ -2,7 +2,7 @@
 //
 // 루틴 네 칸은 계획서의 하루 구성 그대로다(🟢듣기 🟡말하기 🔵교정 🔴꺼내기).
 // 🔴 은 원래 "소리 내서 반복"이었는데 인출 연습으로 바꿨다(기획서 0-2절) — 칸 이름(repeat)은 DB 호환 때문에 그대로.
-// CP0 에서는 손으로 체크한다. CP1~CP3 이 붙으면 기록·교정·따라 말하기를 마칠 때 저절로 켜진다 —
+// 기록을 저장하면 🟡, 교정을 받으면 🔵, 꺼내기 화면(screens/Recall.jsx)을 끝내면 🔴 가 저절로 켜진다 —
 // 그때도 손 체크는 남긴다(교정을 Claude 앱에서 받은 날 등).
 
 import {
@@ -27,7 +27,7 @@ function longDate(s) {
   return `${m}월 ${d}일 (${DOW[weekday(s)]})`;
 }
 
-export default function Today({ program, today, days, onPatch, onGoEntry, onListen }) {
+export default function Today({ program, today, days, onPatch, onGoEntry, onListen, onRecall }) {
   const start = program.start_date;
   const st = programState(start, today);
   const row = days.get(today) || {};
@@ -137,6 +137,11 @@ export default function Today({ program, today, days, onPatch, onGoEntry, onList
               {s.key === "speak" && (
                 <button className="btn small" onClick={onGoEntry}>
                   기록
+                </button>
+              )}
+              {s.key === "repeat" && (
+                <button className="btn small" onClick={onRecall}>
+                  꺼내기
                 </button>
               )}
             </li>

@@ -1,4 +1,4 @@
-import { defineConfig } from "vite";
+import { defineConfig, loadEnv } from "vite";
 import react from "@vitejs/plugin-react";
 import { VitePWA } from "vite-plugin-pwa";
 
@@ -22,6 +22,22 @@ function apiDev() {
           res.end(JSON.stringify({ error: e?.message || String(e) }));
         }
       });
+      // 원어민 발음 (api/tts.js — Fokus DE 와 같은 파일). Vercel 처럼 본문을 미리 읽어 req.body 로 준다.
+      server.middlewares.use("/api/tts", async (req, res) => {
+        try {
+          const { default: handler } = await server.ssrLoadModule("/api/tts.js");
+          if (req.method === "POST") {
+            const chunks = [];
+            for await (const c of req) chunks.push(c);
+            req.body = Buffer.concat(chunks).toString("utf8");
+          }
+          await handler(req, res);
+        } catch (e) {
+          res.statusCode = 500;
+          res.setHeader("Content-Type", "application/json; charset=utf-8");
+          res.end(JSON.stringify({ error: e?.message || String(e) }));
+        }
+      });
     },
   };
 }
@@ -29,8 +45,11 @@ function apiDev() {
 // 설정은 fokus-karten/vite.config.js 를 따랐다. 다른 점:
 //  · dev 포트 5175 — Fokus DE(5173)·Karten(5174)과 origin 이 달라야
 //    localStorage 의 Supabase 세션·설정이 섞이지 않는다.
-//  · /api 는 듣기(listen) 하나뿐이다 — AI 교정은 Fokus DE 의 Supabase 함수를 부른다(lib/ai.js, CP2).
-export default defineConfig({
+//  · /api 는 듣기(listen)와 발음(tts) — AI 교정은 Fokus DE 의 Supabase 함수를 부른다(lib/ai.js, CP2).
+//  · .env 의 VITE_ 가 아닌 값(TTS 키)도 process.env 로 올린다 — 개발 서버 안의 api/tts.js 만 읽고 브라우저로는 안 간다.
+export default defineConfig(({ mode }) => {
+  Object.assign(process.env, loadEnv(mode, process.cwd(), ""));
+  return {
   plugins: [
     apiDev(),
     react(),
@@ -69,4 +88,5 @@ export default defineConfig({
     }),
   ],
   server: { port: 5175, strictPort: true },
+  };
 });
