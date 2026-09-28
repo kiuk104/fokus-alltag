@@ -1,0 +1,26 @@
+/* PWA 알림 줄 + 홈 화면 앱의 안전영역(노치·홈 인디케이터) 여백.
+   fokus-karten/src/styles/pwa.css 에서 이 앱에 있는 것만 가져왔다.
+   ⚠ App.jsx 에서 **맨 마지막에** 로드된다 — 여기 값이 app.css 를 덮는다.
+   그래서 바닥값은 app.css 의 값과 같아야 한다. */
+
+.pwa-bar {
+  display: flex; align-items: center; gap: 8px;
+  margin: 0 0 12px; padding: 9px 12px;
+  border: 1px solid var(--border); border-radius: 9px;
+  background: var(--card);
+  font-size: 12px; color: var(--muted); line-height: 1.5;
+}
+.pwa-bar span { flex: 1; min-width: 0; }
+.pwa-bar.update { border-color: var(--gold); color: var(--ink); }
+.pwa-bar.offline { border-color: var(--red); color: var(--red); }
+.pwa-go {
+  flex: none; padding: 5px 11px; border-radius: 7px;
+  border: none; background: var(--ink); color: var(--cream);
+  font-size: 12px; font-weight: 600;
+}
+
+.shell { padding-left: max(12px, env(safe-area-inset-left));
+         padding-right: max(12px, env(safe-area-inset-right)); }
+.topbar { padding-top: calc(14px + env(safe-area-inset-top)); }
+.tabbar { padding-bottom: env(safe-area-inset-bottom); }
+.shell.has-tabs { padding-bottom: calc(84px + env(safe-area-inset-bottom)); }

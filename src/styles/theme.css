@@ -1,0 +1,102 @@
+/* 팔레트는 Fokus DE와 같다 — 두 앱을 오갈 때 인상이 끊기지 않아야 한다.
+   테마 목록·스와치는 lib/theme.js 의 THEMES 와 짝이다. 여기에 테마를 추가하면
+   거기에도 반드시 추가할 것 — 한쪽만 고치면 고를 수 없는 테마나 빈 화면이 생긴다.
+
+   사용자가 색 조절기에서 고친 값은 <html> 인라인 스타일로 얹히므로 아래 규칙을 이긴다. */
+
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+:root {
+  --cream:#f3ede2; --ink:#17110a;
+  --gold:#bf8729; --red:#b91c1c; --blue:#1d4ed8; --green:#047857;
+  --muted:#7a6754; --border:#ddd0bb; --card:#faf5ec;
+  --error-bg:#fef2f2; --error-text:#991b1b;
+  --success-bg:#f0fdf4; --success-text:#065f46;
+
+  /* 글꼴 — lib/theme.js 의 applyFonts 가 <html> 에 덮어쓴다. 여기 값은 저장된 설정이
+     없을 때(첫 방문·시크릿 창)의 기본이자, JS가 죽어도 글자는 읽히게 하는 안전망이다. */
+  --font-ui: "Noto Sans KR", -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  --font-de: "Inter", "Noto Sans KR", system-ui, sans-serif;
+  --ui-scale: 1;
+  --btn-scale: 1;
+  --card-tracking: 0px;
+  --card-leading: 1.35;
+}
+
+[data-theme="dark"] {
+  --cream:#101214; --ink:#e8e0d0;
+  --gold:#d4a843; --red:#ef4444; --blue:#60a5fa; --green:#34d399;
+  --muted:#888; --border:#333; --card:#242424;
+  --error-bg:#450a0a; --error-text:#fca5a5;
+  --success-bg:#064e3b; --success-text:#6ee7b7;
+  color-scheme: dark;
+}
+
+[data-theme="paper"] {
+  --cream:#F5F5F3; --ink:#2D2D2D;
+  --gold:#4A90E2; --red:#C0392B; --blue:#4A90E2; --green:#2E7D32;
+  --muted:#8C8C8C; --border:#D5D5D0; --card:#FFFFFF;
+  --error-bg:#FFEBEE; --error-text:#B71C1C;
+  --success-bg:#E8F5E9; --success-text:#1B5E20;
+}
+
+[data-theme="neon"] {
+  --cream:#0B0E14; --ink:#E0E0E0;
+  --gold:#00FFD1; --red:#FF3366; --blue:#00BFFF; --green:#39FF14;
+  --muted:#6B7280; --border:#2A2D35; --card:#1A1D23;
+  --error-bg:#2E0A14; --error-text:#FF3366;
+  --success-bg:#0A2E1F; --success-text:#39FF14;
+  color-scheme: dark;
+}
+
+[data-theme="forest"] {
+  --cream:#131313; --ink:#e0e0d0;
+  --gold:#d4a040; --red:#C45C5C; --blue:#7BA7BC; --green:#6B8B3D;
+  --muted:#7a7a60; --border:#2a3525; --card:#1e2a1e;
+  --error-bg:#3A2020; --error-text:#E8A0A0;
+  --success-bg:#2A3520; --success-text:#A8C878;
+  color-scheme: dark;
+}
+
+[data-theme="lavender"] {
+  --cream:#1A1625; --ink:#FFFFFF;
+  --gold:#FF79C6; --red:#FF5555; --blue:#BD93F9; --green:#50FA7B;
+  --muted:#9580B0; --border:#3D3552; --card:#2D283E;
+  --error-bg:#2E1A1A; --error-text:#FF5555;
+  --success-bg:#1A2E1A; --success-text:#50FA7B;
+  color-scheme: dark;
+}
+
+[data-theme="terminal"] {
+  --cream:#1a1a2e; --ink:#c8d6e5;
+  --gold:#e8a855; --red:#e74c3c; --blue:#5dade2; --green:#58d68d;
+  --muted:#7f8fa6; --border:#2c3e50; --card:#16213e;
+  --error-bg:#2e1a1a; --error-text:#e74c3c;
+  --success-bg:#1a2e1a; --success-text:#58d68d;
+  color-scheme: dark;
+}
+
+/* Terminal 은 색만이 아니라 형태까지 터미널이다 — 둥근 모서리를 없애고 UI를 고정폭으로.
+   Fokus DE와 같은 처리라 두 앱에서 같은 테마가 같은 얼굴을 한다.
+   카드 본문(.card-main)은 제외한다: 원문 서체는 글꼴 설정이 정하는 몫이다. */
+[data-theme="terminal"] body {
+  font-family: "JetBrains Mono", ui-monospace, "Courier New", monospace;
+}
+[data-theme="terminal"] *:not(.card-main) { border-radius: 0 !important; }
+
+html, body, #root { height: 100%; }
+
+body {
+  background: var(--cream);
+  color: var(--ink);
+  font-family: var(--font-ui);
+  /* 앱 전체 글자 크기. 화면이 px 로 짜여 있어(rem 이 아니라) 루트 font-size 로는 아무 일도
+     일어나지 않는다. zoom 은 레이아웃 단위째로 키우므로 여백·아이콘까지 같이 커진다.
+     position:fixed 인 학습 화면·시트도 zoom 아래에서 뷰포트를 정확히 채운다(확인함) —
+     transform:scale 로 같은 걸 하려 했다면 여기서 화면이 깨졌을 것이다. */
+  zoom: var(--ui-scale);
+  -webkit-font-smoothing: antialiased;
+  overscroll-behavior: none;
+}
+
+button { font: inherit; cursor: pointer; }

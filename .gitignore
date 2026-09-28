@@ -1,0 +1,14 @@
+node_modules
+dist
+dist-ssr
+dev-dist
+.env
+.env.local
+*.local
+.vercel
+.DS_Store
+*.log
+
+# 브리지에서 삭제가 안 돼 옮겨둔 것들 — 저장소에 올리지 않는다.
+_to_delete
+_git_lock_trash

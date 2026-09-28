@@ -1,0 +1,50 @@
+.auth-page {
+  min-height: 100dvh;
+  display: grid;
+  place-items: center;
+  padding: 24px;
+}
+
+.auth-card {
+  width: 100%;
+  max-width: 360px;
+  background: var(--card);
+  border: 1.5px solid var(--border);
+  border-radius: 14px;
+  padding: 28px 24px;
+}
+
+.auth-logo { font-size: 26px; font-weight: 700; text-align: center; letter-spacing: -0.5px; }
+.auth-logo em { font-style: normal; color: var(--gold); }
+.auth-sub { font-size: 13px; color: var(--muted); text-align: center; margin: 4px 0 22px; }
+
+.auth-toggle { display: flex; gap: 6px; margin-bottom: 18px; }
+.auth-tab {
+  flex: 1; padding: 9px 0; border-radius: 8px;
+  border: 1.5px solid var(--border); background: transparent;
+  color: var(--muted); font-size: 14px;
+}
+.auth-tab.active { background: var(--ink); color: var(--cream); border-color: var(--ink); }
+
+.auth-field { margin-bottom: 12px; }
+.auth-label { display: block; font-size: 12px; color: var(--muted); margin-bottom: 4px; }
+
+/* font-size 16px 미만이면 iOS Safari가 입력 시 화면을 확대한다 — 줄이지 말 것. */
+.auth-input {
+  width: 100%; padding: 10px 12px; font-size: 16px;
+  border: 1.5px solid var(--border); border-radius: 8px;
+  background: var(--cream); color: var(--ink);
+}
+
+.auth-submit {
+  width: 100%; padding: 12px 0; margin-top: 6px;
+  border: none; border-radius: 8px;
+  background: var(--ink); color: var(--cream);
+  font-size: 15px; font-weight: 600;
+}
+.auth-submit:disabled { opacity: 0.5; }
+
+.auth-error { background: var(--error-bg); color: var(--error-text); padding: 9px 12px; border-radius: 8px; font-size: 13px; margin-bottom: 12px; }
+.auth-msg   { background: var(--success-bg); color: var(--success-text); padding: 9px 12px; border-radius: 8px; font-size: 13px; margin-bottom: 12px; }
+
+.auth-link { background: none; border: none; color: var(--blue); font-size: 13px; padding: 0; }

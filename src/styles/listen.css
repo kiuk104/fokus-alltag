@@ -1,0 +1,121 @@
+/* 듣기 화면 (screens/Listen.jsx) + 플레이어 (components/AudioPlayer.jsx) */
+
+.lsn {
+  position: fixed; inset: 0; z-index: 40; overflow-y: auto;
+  background: var(--cream);
+  padding: calc(12px + env(safe-area-inset-top)) max(14px, env(safe-area-inset-right)) calc(28px + env(safe-area-inset-bottom)) max(14px, env(safe-area-inset-left));
+}
+/* 가운데 한 줄 틀 — 자식마다 margin:auto 를 주면 margin 을 따로 쓰는 요소(기사 목록 줄)가 왼쪽으로 빠진다 */
+.lsn-inner { max-width: 620px; margin: 0 auto; }
+.lsn-head { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-bottom: 10px; }
+.lsn-src { font-size: 14px; }
+.lsn-title { font-size: 18px; font-weight: 700; font-family: var(--font-de); line-height: 1.35; }
+.lsn-list { margin: 10px 0 4px; }
+.lsn-list .chip { max-width: 100%; text-align: left; }
+
+/* ── 플레이어 ── */
+.ap { margin: 14px 0 6px; padding: 14px; border: 1.5px solid var(--border); border-radius: 14px; background: var(--card); }
+.ap-row { display: flex; align-items: center; justify-content: center; gap: 10px; }
+.ap-play {
+  width: 58px; height: 58px; border-radius: 50%; flex: none;
+  border: none; background: var(--gold); color: var(--cream); font-size: 20px; font-weight: 800;
+}
+.ap-speed { margin-left: auto; display: inline-flex; flex: none; border: 1.5px solid var(--border); border-radius: 9px; overflow: hidden; }
+.ap-speed button { padding: 7px 10px; border: none; background: var(--cream); color: var(--muted); font-size: 13px; }
+.ap-speed button + button { border-left: 1.5px solid var(--border); }
+.ap-speed button.on { background: var(--ink); color: var(--cream); font-weight: 700; }
+.ap-seek { width: 100%; margin-top: 12px; accent-color: var(--gold); }
+.ap-time { font-size: 12px; color: var(--muted); text-align: right; font-variant-numeric: tabular-nums; margin-top: 2px; }
+.ap-err { margin-top: 6px; font-size: 12.5px; color: var(--red); }
+
+/* ── 영상 + 자막 가림 띠 ── */
+.lsn-video { position: relative; margin: 14px 0 6px; aspect-ratio: 16 / 9; border-radius: 12px; overflow: hidden; background: #000; }
+.lsn-video iframe { position: absolute; inset: 0; width: 100%; height: 100%; border: 0; }
+/* Easy German 자막은 화면 아래 약 1/3 에 박혀 있다. 재생 버튼·진행 막대는 가리지 않도록 맨 아래 12% 는 비운다. */
+.lsn-cover {
+  position: absolute; left: 0; right: 0; bottom: 12%; height: 26%;
+  border: none; background: rgb(0 0 0 / 0.92); color: #bbb; font-size: 12px; letter-spacing: 0.3px;
+}
+.lsn-played { display: block; margin: 0 auto 4px; border: none; background: none; color: var(--blue); font-size: 13px; }
+
+/* ── 단계 ── */
+.lsn-steps { list-style: none; counter-reset: s; margin: 14px 0 0; display: flex; flex-direction: column; gap: 8px; }
+.lsn-steps li {
+  counter-increment: s; position: relative;
+  padding: 10px 12px 10px 42px; border-radius: 10px; border: 1.5px solid var(--border); background: var(--card);
+  font-size: 13px; color: var(--muted); display: flex; flex-direction: column; gap: 4px;
+}
+.lsn-steps li::before {
+  content: counter(s); position: absolute; left: 12px; top: 10px;
+  width: 20px; height: 20px; border-radius: 50%; display: grid; place-items: center;
+  font-size: 11.5px; font-weight: 700; border: 1.5px solid var(--border); color: var(--muted);
+}
+.lsn-steps li b { color: var(--ink); font-size: 14px; }
+.lsn-steps li.now { border-color: var(--gold); }
+.lsn-steps li.now::before { background: var(--gold); border-color: var(--gold); color: var(--cream); }
+.lsn-steps li.done::before { content: "✓"; background: var(--green); border-color: var(--green); color: #fff; }
+.lsn-steps .listen-line { padding-left: 0; margin-top: 2px; }
+
+/* ── 원고 ── */
+.lsn-script { margin-top: 16px; padding: 14px 16px; border-radius: 12px; background: var(--card); border: 1.5px solid var(--border); }
+.lsn-block + .lsn-block { margin-top: 12px; }
+.lsn-block h3 { font-size: 14.5px; font-family: var(--font-de); margin-bottom: 3px; }
+.lsn-block p { font-size: 15px; line-height: 1.65; font-family: var(--font-de); }
+.lsn-words { margin-top: 16px; padding-top: 12px; border-top: 1px dashed var(--border); }
+.lsn-words-head { font-size: 12px; color: var(--muted); font-weight: 700; margin-bottom: 6px; }
+.lsn-word { display: flex; flex-direction: column; margin-bottom: 8px; font-size: 13.5px; line-height: 1.5; }
+.lsn-word b { font-family: var(--font-de); }
+.lsn-word span { color: var(--muted); font-family: var(--font-de); }
+.lsn-site { margin-top: 18px; width: 100%; }
+.lsn-close { margin-top: 10px; }
+
+/* ── 문장 이동 (CP 듣기 1단계+) ── */
+
+.ap-seekwrap { position: relative; margin-top: 12px; }
+.ap-seekwrap .ap-seek { margin-top: 0; display: block; position: relative; z-index: 1; }
+.ap-ticks { position: absolute; left: 8px; right: 8px; top: 50%; height: 12px; transform: translateY(-50%); pointer-events: none; }
+.ap-ticks i { position: absolute; top: 0; width: 1.5px; height: 12px; background: var(--muted); opacity: 0.55; }
+.ap-foot { display: flex; align-items: center; gap: 8px; margin-top: 6px; }
+
+.ap-sent { font-size: 12.5px; font-weight: 700; font-variant-numeric: tabular-nums; }
+.ap-loop { padding: 4px 9px; border-radius: 999px; border: 1.5px solid var(--border); background: transparent; color: var(--muted); font-size: 12px; }
+.ap-loop.on { background: var(--gold); border-color: var(--gold); color: var(--cream); font-weight: 700; }
+.ap-loading { padding: 18px 14px; }
+.ap-bar { height: 6px; border-radius: 3px; background: var(--border); overflow: hidden; margin-bottom: 8px; }
+.ap-bar i { display: block; height: 100%; background: var(--gold); transition: width 0.2s; }
+
+
+/* 10초 · 문장 이동 버튼 — 재생 버튼 양옆에 크기를 맞춰 둔다 */
+.ap-btn {
+  width: 48px; height: 48px; border-radius: 50%; flex: none;
+  border: 1.5px solid var(--border); background: var(--cream); color: var(--ink);
+  font-size: 13px; font-weight: 700; font-variant-numeric: tabular-nums;
+}
+.ap-btn:disabled { opacity: 0.35; }
+.ap-foot { flex-wrap: wrap; margin-top: 8px; }
+.ap-speed button { padding: 6px 9px; }
+@media (max-width: 380px) {
+  .ap-row { gap: 6px; }
+  .ap-btn { width: 42px; height: 42px; font-size: 12px; }
+  .ap-play { width: 52px; height: 52px; }
+}
+
+/* ── Tandem 식 비교 (components/TandemCompare.jsx) ── */
+.td { margin-bottom: 16px; display: flex; flex-direction: column; gap: 8px; }
+.td-label { font-size: 11.5px; font-weight: 700; color: var(--muted); margin-bottom: 3px; }
+/* 말풍선 — 내 글은 오른쪽 위가 뾰족한 풍선 */
+.td-bubble {
+  align-self: flex-end; max-width: 92%;
+  padding: 10px 13px; border-radius: 14px 4px 14px 14px;
+  background: color-mix(in srgb, var(--gold) 13%, var(--cream)); border: 1.5px solid color-mix(in srgb, var(--gold) 45%, var(--border));
+}
+.td-mine { font-family: var(--font-de); font-size: 16px; line-height: 1.7; }
+.td-ok { text-decoration: underline 2px var(--green); text-underline-offset: 3px; }
+.td-ok::after { content: "✓"; font-size: 10px; color: var(--green); vertical-align: super; margin-left: 1px; }
+.td-fix s { color: var(--red); text-decoration-thickness: 1.5px; opacity: 0.85; }
+.td-fix ins { text-decoration: none; color: var(--green); font-weight: 700; margin-left: 4px; }
+.td-verdict { margin-top: 4px; font-size: 12px; color: var(--muted); }
+.td-orig { padding: 10px 13px; border-radius: 4px 14px 14px 14px; border: 1.5px solid var(--border); background: var(--cream); max-width: 92%; }
+.td-orig p { font-family: var(--font-de); font-size: 14.5px; line-height: 1.65; }
+.td-orig p + p { margin-top: 6px; }
+.td-orig mark { background: color-mix(in srgb, var(--green) 22%, transparent); color: inherit; border-radius: 3px; padding: 0 2px; }

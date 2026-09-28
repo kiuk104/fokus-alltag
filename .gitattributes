@@ -1,0 +1,16 @@
+# 줄바꿈은 저장소 안에서 항상 LF로 통일한다.
+# 윈도우(CRLF)와 리눅스·맥(LF)이 섞이면 한 줄만 고쳐도 파일 전체가 바뀐 것처럼
+# diff에 나온다. 이 한 줄이 그걸 막는다.
+* text=auto eol=lf
+
+# 아래는 텍스트가 아니다 — git이 줄바꿈을 건드리면 파일이 깨진다.
+# (svg는 XML이라 텍스트로 두는 게 맞다)
+*.png  binary
+*.jpg  binary
+*.jpeg binary
+*.gif  binary
+*.ico  binary
+*.webp binary
+*.woff binary
+*.woff2 binary
+*.pdf  binary
