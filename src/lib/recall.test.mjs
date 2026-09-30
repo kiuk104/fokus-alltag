@@ -3,8 +3,8 @@ import assert from "node:assert/strict";
 import { keptSentences, scoreRecall, verdict, firstLetters, reviveFor } from "./recall.js";
 
 const entry = (id, day, keep, ids, edited) => ({
-  id, day, saved_sentence_ids: ids,
-  correction: { data: { keep }, progress: { saved: true, ...(edited ? { keepEdited: edited } : {}) } },
+  id, day,
+  correction: { data: { keep }, progress: { saved: true, sentIds: ids, ...(edited ? { keepEdited: edited } : {}) } },
 });
 
 test("보낸 문장만, 켜 둔 순서대로 id 와 짝짓는다", () => {
@@ -12,6 +12,9 @@ test("보낸 문장만, 켜 둔 순서대로 id 와 짝짓는다", () => {
   const edited = [{ ...keep[0], on: true }, { ...keep[1], on: false }, { de: "C drei, neu.", ko: "c2", on: true }];
   const s = keptSentences([entry(1, "2026-10-02", keep, [11, 12], edited), entry(2, "2026-10-02", keep, [], null)]);
   assert.deepEqual(s.map((x) => [x.id, x.de, x.ko]), [[11, "A eins.", "a"], [12, "C drei, neu.", "c2"]]);
+  // 옛 기록(칼럼에만 id 가 있던 것)도 읽는다
+  const legacy = { id: 3, day: "d", saved_sentence_ids: [7], correction: { data: { keep: [keep[0]] }, progress: {} } };
+  assert.deepEqual(keptSentences([legacy]).map((x) => x.id), [7]);
 });
 
 test("말한 것 채점 — 순서·철자 한 글자 차이는 봐준다, 더 말해도 깎지 않는다", () => {

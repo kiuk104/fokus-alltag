@@ -42,11 +42,17 @@ export async function saveEntry(userId, entry) {
   return data;
 }
 
-/** 교정 결과·진행 상태, DE 로 보낸 문장 id 만 고친다 (글은 그대로) */
+/**
+ * DE 로 보낸 문장 id 들. DE 의 user_sentences.id 는 **uuid** 라 bigint[] 칼럼(saved_sentence_ids)에 못 넣는다
+ * (2026-09-28 "invalid input syntax for type bigint"). 그래서 correction.progress.sentIds(jsonb)에 둔다.
+ * 칼럼은 테이블을 다시 만들지 않으려고 남겨 두고 쓰지 않는다.
+ */
+export const sentIds = (entry) => entry?.correction?.progress?.sentIds || entry?.saved_sentence_ids || [];
+
+/** 교정 결과·진행 상태만 고친다 (글은 그대로) */
 export async function patchEntry(userId, id, patch) {
   const row = { updated_at: new Date().toISOString() };
   if ("correction" in patch) row.correction = patch.correction;
-  if ("saved_sentence_ids" in patch) row.saved_sentence_ids = patch.saved_sentence_ids;
   const { data, error } = await supabase
     .from("alltag_entries").update(row).eq("id", id).eq("user_id", userId).select(COLS).single();
   if (error) throw new Error(error.message);

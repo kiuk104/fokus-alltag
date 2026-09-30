@@ -13,7 +13,7 @@ import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { askClaude, MONTHLY_CAP } from "../lib/ai";
 import { SYSTEM, correctionPrompt, explainPrompt, extractJson, normalizeCorrection, normalizeExplain, markFixes, selfFixed, levelUpPrompt, normalizeLevelUp, wordKey } from "../lib/correct";
 import { loadSentenceTags, tagsFor, insertSentences, knownWordKeys, insertWord, NOTEBOOK } from "../lib/deWrite";
-import { patchEntry } from "../lib/entryRepo";
+import { patchEntry, sentIds } from "../lib/entryRepo";
 import { buildPrompt } from "../lib/bridge";
 import { GRAMMAR } from "../lib/program";
 import { DE_URL, KARTEN_URL, openApp } from "../lib/links";
@@ -162,7 +162,7 @@ export default function Correction({ entry, userId, month, tplTitle, onEntry, on
       )}
       {view === 4 && (
         <StepKeep data={data} entry={entry} prog={prog} userId={userId} month={month} onError={onError}
-          onSaved={(ids, keepEdited) => save({ step: 4, view: 4, saved: true, keepEdited }, { saved_sentence_ids: ids })}
+          onSaved={(ids, keepEdited) => save({ step: 4, view: 4, saved: true, keepEdited, sentIds: ids })}
           onWords={(wordsSaved) => save({ wordsSaved })} />
       )}
     </section>
@@ -418,7 +418,8 @@ function StepKeep({ data, entry, prog, userId, month, onError, onSaved, onWords 
   const [rows, setRows] = useState(() => (prog.keepEdited || data.keep).map((k) => ({ ...k, on: k.on ?? true })));
   const [existing, setExisting] = useState([]);
   const [busy, setBusy] = useState(false);
-  const saved = prog.saved && (entry.saved_sentence_ids || []).length > 0;
+  const ids = sentIds(entry);
+  const saved = prog.saved && ids.length > 0;
 
   useEffect(() => {
     let alive = true;
@@ -451,10 +452,10 @@ function StepKeep({ data, entry, prog, userId, month, onError, onSaved, onWords 
   };
 
   if (saved) {
-    const first = entry.saved_sentence_ids[0];
+    const first = ids[0];
     return (
       <div className="cr-body">
-        <p className="cr-lead">✓ Fokus DE 단어장 <b>{NOTEBOOK}</b> 에 {entry.saved_sentence_ids.length}문장을 보냈어요.</p>
+        <p className="cr-lead">✓ Fokus DE 단어장 <b>{NOTEBOOK}</b> 에 {ids.length}문장을 보냈어요.</p>
         <ul className="cr-keep done">
           {rows.filter((r) => r.on).map((r, i) => (
             <li key={i}><b lang="de">{r.de}</b><span>{r.ko}</span></li>

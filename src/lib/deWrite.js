@@ -31,10 +31,20 @@ export async function loadSentenceTags(userId) {
 
 /**
  * 문장들을 DE 로 보낸다. rows: [{ de, ko, tags, category, note }]
- * 반환: 새 문장 id 들 (alltag_entries.saved_sentence_ids 에 남긴다)
+ * 반환: 문장 id 들, rows 와 같은 순서 (uuid — alltag_entries.correction.progress.sentIds 에 남긴다)
+ *
+ * 단어장 Alltag 에 똑같은 독일어 문장이 이미 있으면 새로 넣지 않고 그 id 를 쓴다.
+ * 보내기는 됐는데 진행 저장이 실패해서 다시 누르는 경우 — DE 에 같은 문장이 두 번 생기지 않게.
  */
 export async function insertSentences(userId, rows) {
-  const payload = rows.map((r) => ({
+  const germans = rows.map((r) => r.de.trim());
+  const have = new Map();
+  const { data: old } = await supabase
+    .from("user_sentences").select("id, german").eq("user_id", userId).eq("notebook", NOTEBOOK).in("german", germans);
+  for (const o of old || []) if (!have.has(o.german)) have.set(o.german, o.id);
+
+  const fresh = rows.filter((r) => !have.has(r.de.trim()));
+  const payload = fresh.map((r) => ({
     user_id: userId,
     notebook: NOTEBOOK,
     german: r.de.trim(),
@@ -45,9 +55,12 @@ export async function insertSentences(userId, rows) {
     level: "B2",
     tags: r.tags,
   }));
-  const { data, error } = await supabase.from("user_sentences").insert(payload).select("id");
-  if (error) throw new Error(error.message);
-  return (data || []).map((d) => d.id);
+  if (payload.length) {
+    const { data, error } = await supabase.from("user_sentences").insert(payload).select("id, german");
+    if (error) throw new Error(error.message);
+    for (const d of data || []) have.set(d.german, d.id);
+  }
+  return germans.map((g) => have.get(g)).filter((id) => id != null);
 }
 
 // ── 새 단어 → custom_words (연결 지점 2, CP3) ─────────────────────────────────

@@ -13,13 +13,13 @@ export const CLOSE = 0.55;
 /**
  * 저장한 기록들 → DE 로 보낸 문장 목록.
  * 교정 5단계에서 보낸 문장은 correction.progress.keepEdited(켜 둔 것만, 보낸 순서) 와
- * saved_sentence_ids 가 같은 순서로 짝을 이룬다.
+ * 보낸 id(progress.sentIds — DE 문장 id 는 uuid) 가 같은 순서로 짝을 이룬다.
  * 반환: [{ id, de, ko, day, entryId, grammar, topic }]
  */
 export function keptSentences(entries) {
   const out = [];
   for (const e of entries || []) {
-    const ids = e.saved_sentence_ids || [];
+    const ids = e.correction?.progress?.sentIds || e.saved_sentence_ids || [];
     const c = e.correction;
     if (!ids.length || !c?.data) continue;
     const rows = (c.progress?.keepEdited || c.data.keep || []).filter((r) => (r.on ?? true) && String(r.de || "").trim());
