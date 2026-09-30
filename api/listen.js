@@ -7,12 +7,16 @@
 // 응답: { src, kind: "audio"|"video", title, date, audio?, videoId?, link, script: [{h,p}], words: [{term,expl}], list? }
 // 로그인 확인은 하지 않는다: 공개 방송의 최신 편 주소를 알려 줄 뿐이고, 키·개인 데이터가 오가지 않는다.
 
-import { parseRss, parseYoutube, parseLeichtHome, parseLeichtArticle, parseDwText } from "./_listen-parse.js";
+import { parseRss, parseYoutube, parseYoutubePage, parseLeichtHome, parseLeichtArticle, parseDwText } from "./_listen-parse.js";
 
 const FEEDS = {
   dw: "https://rss.dw.com/xml/DKpodcast_lgn_de",
   tagesschau: "https://www.tagesschau.de/multimedia/sendung/tagesschau_in_100_sekunden/podcast-ts100-audio-100~podcast.xml",
   easy: "https://www.youtube.com/feeds/videos.xml?channel_id=UCbxb2fqe9oNgglAoYqsYOtQ",
+  // 채널 RSS 는 데이터센터(Vercel)에서 부르면 가끔 404 를 준다(2026-09-30 배포본에서 확인).
+  // 같은 목록을 얻는 다른 길 둘: 업로드 재생목록 RSS(UC → UU), 채널 영상 페이지.
+  easyPlaylist: "https://www.youtube.com/feeds/videos.xml?playlist_id=UUbxb2fqe9oNgglAoYqsYOtQ",
+  easyPage: "https://www.youtube.com/@EasyGerman/videos",
   leicht: "https://www.nachrichtenleicht.de",
 };
 
@@ -63,9 +67,34 @@ async function tagesschau() {
   return { kind: "audio", title: ep.title, date: ep.date, audio: ep.audio, link: "https://www.tagesschau.de/", script: [], words: [] };
 }
 
+// 업로드 재생목록 — 서버가 목록을 하나도 못 받으면 앱이 이 재생목록을 통째로 끼워 튼다(최신 영상이 맨 앞)
+const EASY_UPLOADS = "UUbxb2fqe9oNgglAoYqsYOtQ";
+
+async function easyList() {
+  const tries = [
+    () => get(FEEDS.easy).then((x) => parseYoutube(x, 5)),
+    () => get(FEEDS.easyPlaylist).then((x) => parseYoutube(x, 5)),
+    () => get(FEEDS.easyPage).then((x) => parseYoutubePage(x, 5)),
+  ];
+  for (const t of tries) {
+    try {
+      const v = await t();
+      if (v.length) return v;
+    } catch {
+      /* 다음 길로 */
+    }
+  }
+  return [];
+}
+
 async function easy() {
-  const vids = parseYoutube(await get(FEEDS.easy), 5);
-  if (!vids.length) throw new Error("Easy German 최신 영상을 찾지 못했어요");
+  const vids = await easyList();
+  if (!vids.length) {
+    return {
+      kind: "video", title: "Easy German — 최신 영상", date: "", playlist: EASY_UPLOADS,
+      link: "https://www.youtube.com/@EasyGerman/videos", script: [], words: [], burnedSubs: true, list: [],
+    };
+  }
   const v = vids[0];
   return {
     kind: "video",

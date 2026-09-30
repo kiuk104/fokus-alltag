@@ -102,11 +102,15 @@ export default function Listen({ source, today, row, onPatch, onClose }) {
             <AudioPlayer key={data.audio} src={data.audio} onPlayCount={countPlay} />
           )}
 
-          {data.kind === "video" && videoId && (
+          {data.kind === "video" && (videoId || data.playlist) && (
             <div className="lsn-video">
               <iframe
-                key={videoId}
-                src={`https://www.youtube-nocookie.com/embed/${videoId}?playsinline=1&rel=0&modestbranding=1`}
+                key={videoId || data.playlist}
+                src={
+                  videoId
+                    ? `https://www.youtube-nocookie.com/embed/${videoId}?playsinline=1&rel=0&modestbranding=1`
+                    : `https://www.youtube-nocookie.com/embed/videoseries?list=${data.playlist}&playsinline=1&rel=0&modestbranding=1`
+                }
                 title={title}
                 allow="autoplay; encrypted-media; picture-in-picture"
                 allowFullScreen

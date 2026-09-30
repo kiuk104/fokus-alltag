@@ -137,3 +137,13 @@ test("item 에 이상한 경로를 넣어도 첫 기사로", async () => {
   });
   assert.equal(r.json.item, "/papst-leo-100.html");
 });
+
+test("YouTube 채널 페이지 → 영상 목록 (RSS 가 막힐 때)", async () => {
+  const { parseYoutubePage } = await import("./_listen-parse.js");
+  const html = 'x"videoRenderer":{"videoId":"abcdefghijk","thumbnail":{},"title":{"runs":[{"text":"Wie sagt man \\"Tschüss\\"? | Easy German 500"}]}}' +
+    '"videoRenderer":{"videoId":"abcdefghijk","title":{"runs":[{"text":"dup"}]}}' +
+    '"videoRenderer":{"videoId":"ZZZZZZZZZZZ","title":{"runs":[{"text":"Kurz #shorts"}]}}' +
+    '"videoRenderer":{"videoId":"B1b2B3b4B5b","x":1,"title":{"runs":[{"text":"Berlin"}]}}';
+  const v = parseYoutubePage(html);
+  assert.deepEqual(v.map((x) => [x.id, x.title]), [["abcdefghijk", 'Wie sagt man "Tschüss"? | Easy German 500'], ["B1b2B3b4B5b", "Berlin"]]);
+});

@@ -54,6 +54,25 @@ export function parseYoutube(xml, limit = 5) {
     .slice(0, limit);
 }
 
+/**
+ * 채널 영상 페이지(/@채널/videos) → 영상 목록. RSS 가 막힐 때 쓰는 두 번째 길.
+ * 페이지 안 ytInitialData 의 "videoRenderer":{"videoId":"…", … "title":{"runs":[{"text":"…"}]} 를 읽는다.
+ */
+export function parseYoutubePage(html, limit = 5) {
+  const out = [];
+  const seen = new Set();
+  const re = /"videoRenderer":\{"videoId":"([\w-]{11})"([\s\S]{0,1500}?)"title":\{"runs":\[\{"text":"((?:[^"\\]|\\.)*)"/g;
+  for (let m; (m = re.exec(String(html || ""))) && out.length < limit; ) {
+    if (seen.has(m[1])) continue;
+    seen.add(m[1]);
+    let title = m[3];
+    try { title = JSON.parse(`"${title}"`); } catch { /* 그대로 */ }
+    if (/#shorts/i.test(title)) continue;
+    out.push({ id: m[1], title, date: "", href: `https://www.youtube.com/watch?v=${m[1]}` });
+  }
+  return out;
+}
+
 // ── Nachrichtenleicht ───────────────────────────────────────────────────────
 
 const LEICHT_SKIP = /^\/(benutzung|erklaerung|regionale-angebote|nachrichtenleicht-[a-z-]+|impressum|datenschutz|kontakt)-100\.html$/;
