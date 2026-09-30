@@ -10,6 +10,7 @@
 //   ③ ai_usage_log — src/lib/ai.js 한 파일에서만, 넣기와 조회만(CP2).
 //   ④ 기본 단어장(generated_words · word_tags) — 읽기만, deWrite.js 에서(새 단어가 DE 에 이미 있는지 볼 때, CP3).
 //   ⑤ card_meta — src/lib/audio.js 한 파일에서만, upsert 만(발음 붙이기, CP3). 지우기는 DE·Karten 몫.
+//   ⑥ profiles — src/lib/deTheme.js 한 파일에서만, 읽기만(DE 의 테마·색 조정 가져오기).
 
 import { readdirSync, readFileSync, statSync } from "node:fs";
 import { join, extname } from "node:path";
@@ -23,6 +24,7 @@ const RULES = [
   { tables: ["ai_usage_log"], file: P("ai.js"), allow: ["insert"] },
   { tables: ["generated_words", "word_tags"], file: P("deWrite.js"), allow: ["insert"] }, // deWrite 의 insert 는 문장·단어용
   { tables: ["card_meta"], file: P("audio.js"), allow: ["upsert"] },
+  { tables: ["profiles"], file: P("deTheme.js"), allow: [] }, // 🎨 DE 설정의 테마·색 — 읽기만
 ];
 
 const WRITE = /\.(insert|update|upsert|delete|rpc)\s*\(/g;

@@ -280,3 +280,10 @@ code { font-size: 0.92em; padding: 1px 5px; border-radius: 5px; background: var(
 .ls-sel { flex: 1; min-width: 0; padding: 7px 8px; font-size: 16px; }
 .ls-custom { display: flex; flex-direction: column; gap: 6px; margin: 10px 0 8px; }
 .ls-bad { color: var(--red); }
+
+/* 🎨 Fokus DE 색 가져오기 (설정 시트) — fokus-lesen 과 같은 모양 */
+.de-theme { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; margin-top: 10px; }
+.de-follow { display: flex; align-items: center; gap: 6px; }
+.de-follow input { accent-color: var(--gold); }
+.de-msg { margin-top: 6px; line-height: 1.5; }
+.text-link { border: none; background: none; padding: 0; color: inherit; font: inherit; text-decoration: underline; text-underline-offset: 3px; cursor: pointer; }

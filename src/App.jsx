@@ -8,6 +8,7 @@ import { useCallback, useEffect, useState } from "react";
 import { supabase } from "./lib/supabase";
 import { registerServiceWorker } from "./lib/pwa";
 import { applyTheme, getSettings, saveSettings } from "./lib/theme";
+import { loadDeTheme, withDeTheme } from "./lib/deTheme";
 import { loadProgram, saveProgram, loadDays, saveDay, MIGRATION_FILE } from "./lib/programRepo";
 import { addDays, ymd } from "./lib/program";
 import Auth from "./components/Auth";
@@ -102,6 +103,14 @@ export default function App() {
     applyTheme(next);
     setAppSet(next);
   }, []);
+
+  // 🎨 "앱을 열 때마다 DE 설정 따라가기" — 로그인 뒤 한 번 DE 의 테마·색 조정을 받아 온다
+  useEffect(() => {
+    if (!userId || !getSettings().followDe) return;
+    loadDeTheme(userId)
+      .then((de) => de && changeSettings({ ...withDeTheme(getSettings(), de), followDe: true }))
+      .catch(() => {}); // 못 받으면 지난번 색 그대로
+  }, [userId, changeSettings]);
 
   // 프로그램 설정(듣기 순환표 등) — alltag_program.settings 에 통째로 저장
   const saveProgramSettings = async (settings) => {

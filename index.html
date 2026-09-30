@@ -29,8 +29,12 @@
           var s = JSON.parse(localStorage.getItem("fa-settings") || "{}");
           var t = s.theme || (matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light");
           document.documentElement.setAttribute("data-theme", t);
+          // Fokus DE 에서 가져온 색 조정 (theme.js cleanOverrides 와 같은 변수만)
+          var o = (s.themeOverrides && s.themeOverrides[t]) || {};
+          var V = ["--cream", "--card", "--border", "--ink", "--muted", "--gold", "--der", "--die", "--das", "--green", "--red", "--blue"];
+          for (var i = 0; i < V.length; i++) if (typeof o[V[i]] === "string") document.documentElement.style.setProperty(V[i], o[V[i]]);
           var m = document.querySelector('meta[name="theme-color"]');
-          if (m) m.setAttribute("content", BAR[t] || BAR.light);
+          if (m) m.setAttribute("content", o["--cream"] || BAR[t] || BAR.light);
         } catch (e) { /* 저장소를 못 읽으면 기본 라이트 */ }
       })();
     </script>
