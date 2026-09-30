@@ -147,8 +147,34 @@ test("서버: 영상 페이지가 막히면 플레이어 API 로", async () => {
 test("서버: 둘 다 막히면 502 와 어느 단계에서 막혔는지", async () => {
   const r = await withFetch(() => null, () => run("/api/listen-captions?v=AAAAAAAAAAA"));
   assert.equal(r.statusCode, 502);
-  assert.equal(r.body.tried.length, 2);
+  assert.equal(r.body.tried.length, 4);
   assert.match(r.body.tried[0].note, /404/);
+});
+
+test("서버: 트랙이 비어 오면 재생 상태를 이유로 적는다", async () => {
+  const r = await withFetch(
+    (u) => (u.includes("youtubei") ? { playabilityStatus: { status: "LOGIN_REQUIRED", reason: "Sign in to confirm you're not a bot" } } : "<html></html>"),
+    () => run("/api/listen-captions?v=AAAAAAAAAAA"),
+  );
+  assert.equal(r.statusCode, 502);
+  assert.equal(r.body.tried[0].note, "플레이어 응답 없음");
+  assert.match(r.body.tried[1].note, /LOGIN_REQUIRED · Sign in to confirm/);
+});
+
+test("서버: 앞 방식이 비어도 다음 클라이언트에서 받으면 성공", async () => {
+  const r = await withFetch(
+    (u, init) => {
+      if (u.includes("/watch?")) return "<html></html>";
+      if (u.includes("youtubei")) {
+        const ok = JSON.parse(init.body).context.client.clientName === "IOS";
+        return { captions: ok ? { playerCaptionsTracklistRenderer: { captionTracks: [{ baseUrl: TRACK, languageCode: "de" }] } } : undefined };
+      }
+      return u.includes("fmt=json3") ? JSON3 : null;
+    },
+    () => run("/api/listen-captions?v=AAAAAAAAAAA"),
+  );
+  assert.equal(r.body.count, 3);
+  assert.equal(r.body.via, "플레이어 API(IOS)");
 });
 
 test("서버: 영상 ID 검사 · 붙여넣기(POST)", async () => {

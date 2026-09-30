@@ -19,22 +19,63 @@ async function getText(url, init = {}) {
   return r.text();
 }
 
+// 응답이 왜 자막을 안 주는지 알 수 있게, 재생 상태를 짧게 적어 둔다 (예: LOGIN_REQUIRED · "Sign in to confirm you're not a bot")
+const statusNote = (j) => {
+  const p = j?.playabilityStatus;
+  const why = String(p?.reason || p?.messages?.[0] || "").slice(0, 80);
+  return `${p?.status || "상태 없음"}${why ? ` · ${why}` : ""}${j?.captions ? "" : " · captions 없음"}`;
+};
+
 // 1) 영상 페이지의 captionTracks
-async function tracksFromWatchPage(id) {
+async function fromWatchPage(id) {
   const html = await getText(`https://www.youtube.com/watch?v=${id}&hl=de`, { headers: { Cookie: "CONSENT=YES+1; SOCS=CAI" } });
-  return parseCaptionTracks(html);
+  const tracks = parseCaptionTracks(html);
+  let note = "";
+  if (!tracks.length) {
+    const m = html.match(/"playabilityStatus":(\{[\s\S]{0,400}?\})\s*,\s*"/);
+    note = /consent\.youtube|Bevor Sie zu YouTube/i.test(html) ? "동의 화면이 나옴" : m ? statusNote({ playabilityStatus: safeJson(m[1]) }) : "플레이어 응답 없음";
+  }
+  return { tracks, note };
 }
 
-// 2) 플레이어 API (안드로이드 앱이 쓰는 길)
-async function tracksFromPlayerApi(id) {
-  const body = { context: { client: { clientName: "ANDROID", clientVersion: "20.10.38", androidSdkVersion: 34, hl: "de", gl: "DE" } }, videoId: id };
-  const text = await getText("https://www.youtube.com/youtubei/v1/player?prettyPrint=false", {
-    method: "POST",
-    headers: { "Content-Type": "application/json", "User-Agent": "com.google.android.youtube/20.10.38 (Linux; U; Android 14) gzip" },
-    body: JSON.stringify(body),
-  });
-  return tracksFromPlayer(JSON.parse(text));
-}
+const safeJson = (s) => {
+  try {
+    return JSON.parse(s);
+  } catch {
+    return null;
+  }
+};
+
+// 2) 플레이어 API — 클라이언트 종류마다 유튜브의 대접이 달라서 여러 개를 차례로 본다
+const CLIENTS = {
+  ANDROID: {
+    ua: "com.google.android.youtube/20.10.38 (Linux; U; Android 14) gzip",
+    client: { clientName: "ANDROID", clientVersion: "20.10.38", androidSdkVersion: 34 },
+  },
+  IOS: {
+    ua: "com.google.ios.youtube/20.10.4 (iPhone16,2; U; CPU iOS 18_3_2 like Mac OS X;)",
+    client: { clientName: "IOS", clientVersion: "20.10.4", deviceModel: "iPhone16,2", osVersion: "18.3.2.22D82" },
+  },
+  WEB_EMBEDDED: {
+    ua: UA,
+    client: { clientName: "WEB_EMBEDDED_PLAYER", clientVersion: "1.20250310.01.00" },
+    extra: (id) => ({ thirdParty: { embedUrl: `https://www.youtube.com/watch?v=${id}` } }),
+  },
+};
+
+const fromPlayerApi = (name) => async (id) => {
+  const c = CLIENTS[name];
+  const body = { context: { client: { ...c.client, hl: "de", gl: "DE" }, ...(c.extra ? c.extra(id) : {}) }, videoId: id };
+  const j = safeJson(
+    await getText("https://www.youtube.com/youtubei/v1/player?prettyPrint=false", {
+      method: "POST",
+      headers: { "Content-Type": "application/json", "User-Agent": c.ua },
+      body: JSON.stringify(body),
+    }),
+  );
+  const tracks = tracksFromPlayer(j);
+  return { tracks, note: tracks.length ? "" : statusNote(j) };
+};
 
 async function cuesOf(track) {
   const base = track.url.replace(/&fmt=[^&]*/, "");
@@ -46,24 +87,26 @@ async function cuesOf(track) {
 async function fromYoutube(id) {
   const tried = [];
   const steps = [
-    ["영상 페이지", tracksFromWatchPage],
-    ["플레이어 API", tracksFromPlayerApi],
+    ["영상 페이지", fromWatchPage],
+    ["플레이어 API(ANDROID)", fromPlayerApi("ANDROID")],
+    ["플레이어 API(IOS)", fromPlayerApi("IOS")],
+    ["플레이어 API(임베드)", fromPlayerApi("WEB_EMBEDDED")],
   ];
   for (const [step, fn] of steps) {
     try {
-      const tracks = await fn(id);
+      const { tracks, note } = await fn(id);
       const track = pickGermanTrack(tracks);
       if (!track) {
-        tried.push({ step, ok: false, note: tracks.length ? `독일어 자막 없음 (${tracks.map((t) => t.lang).join(",")})` : "자막 트랙 없음" });
+        tried.push({ step, ok: false, note: tracks.length ? `독일어 자막 없음 (${tracks.map((t) => t.lang).join(",")})` : note || "자막 트랙 없음" });
         continue;
       }
       const cues = await cuesOf(track);
       if (!cues.length) {
-        tried.push({ step, ok: false, note: "자막을 받았지만 비어 있음" });
+        tried.push({ step, ok: false, note: "자막 트랙은 찾았지만 내용을 못 받음" });
         continue;
       }
       const sentences = sentencesFromCues(cues);
-      return { ok: true, data: { videoId: id, source: "youtube", lang: track.lang, auto: track.auto, count: sentences.length, sentences } };
+      return { ok: true, data: { videoId: id, source: "youtube", via: step, lang: track.lang, auto: track.auto, count: sentences.length, sentences } };
     } catch (e) {
       tried.push({ step, ok: false, note: e?.message || String(e) });
     }
