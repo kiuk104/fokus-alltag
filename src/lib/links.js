@@ -7,7 +7,8 @@
 const trim = (s) => (s || "").replace(/\/+$/, "");
 
 export const DE_URL = trim(import.meta.env.VITE_FOKUS_DE_URL) || "https://basiswortschatz.vercel.app";
-// Karten 배포 주소는 .env 에 넣어야 버튼이 생긴다(모르는 주소로 보내지 않는다).
-export const KARTEN_URL = trim(import.meta.env.VITE_KARTEN_URL);
+export const KARTEN_URL = trim(import.meta.env.VITE_KARTEN_URL) || "https://fokus-karten.vercel.app";
+// 이 앱 주소 (2026-09-30 첫 배포)
+export const ALLTAG_URL = "https://fokus-alltag.vercel.app";
 
 export const openApp = (url) => window.open(url, "_blank", "noopener");
