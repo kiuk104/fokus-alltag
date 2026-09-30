@@ -1,7 +1,10 @@
 // CP2(앱 안 교정) 전까지 쓰는 징검다리 — Claude 앱에 붙여 넣을 교정 요청문.
 // 순서는 기획서 0-2절(스스로 고치기 → 공개 → 자기 설명)과 같다. CP2 화면도 같은 흐름이다.
 
+import { markIntent } from "./correct.js";
+
 export function buildPrompt({ text, month, tplTitle, korean }) {
+  const intent = korean ? { has: false, text } : markIntent(text);
   const head = korean
     ? [
         "오늘 REWE 배송 업무 중 있었던 일을 한국어로 적었어. (지친 날이라 한국어로 썼어)",
@@ -23,6 +26,7 @@ export function buildPrompt({ text, month, tplTitle, korean }) {
         "3) B2 표현 → 독일인이 실제로 자연스럽게 말할 법한 표현",
         "4) 핵심 문법 하나를 골라 줘. 내가 왜 그렇게 되는지 한 줄로 설명해 볼 테니 맞는지 확인해 줘.",
         "5) 오늘 외울 문장 3개 (독일어 + 한국어)",
+        ...(intent.has ? ["", "🇰🇷 줄은 내가 하려던 말(의도)이야. 교정하지 말고, 독일어가 그 뜻에 맞는지 보는 데 써 줘."] : []),
       ];
-  return [...head, "", text.trim()].join("\n");
+  return [...head, "", intent.text.trim()].join("\n");
 }

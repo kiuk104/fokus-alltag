@@ -219,6 +219,7 @@ code { font-size: 0.92em; padding: 1px 5px; border-radius: 5px; background: var(
 .chips .chip { padding: 5px 10px; font-size: 12.5px; }
 
 .mode-row { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin: 14px 0 4px; }
+.intent-tip { margin: 2px 0 6px; }
 .seg { display: inline-flex; border: 1.5px solid var(--border); border-radius: 10px; overflow: hidden; }
 .seg button { padding: 7px 12px; border: none; background: var(--card); color: var(--muted); font-size: 13px; }
 .seg button + button { border-left: 1.5px solid var(--border); }

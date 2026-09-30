@@ -147,6 +147,12 @@ export default function Correction({ entry, userId, month, tplTitle, onEntry, on
         <b>AI 교정</b>
         {c.saving && <span className="cr-save">절약 모드</span>}
         <span className="muted tiny cr-cost">이번 달 ${(c.spent || 0).toFixed(2)} / ${MONTHLY_CAP}</span>
+        {/* 결과가 마음에 안 들면 다시 — DE 로 보내기 전까지만 (보낸 뒤 바꾸면 보낸 문장과 어긋난다) */}
+        {!prog.saved && (
+          <button className="btn small cr-redo" disabled={!!busy} onClick={run} title="같은 글로 교정을 새로 받습니다">
+            {busy || "↻ 다시 교정"}
+          </button>
+        )}
       </div>
       <ol className="cr-steps">
         {STEPS.map((s, i) => (

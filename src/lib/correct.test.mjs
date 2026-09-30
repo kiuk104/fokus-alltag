@@ -106,3 +106,16 @@ test("새 단어 — 관사를 떼고, 구·중복·뜻 없는 것은 버린다"
   assert.equal(wordKey("die Straße"), "strasse");
   assert.deepEqual(normalizeCorrection({ b1: { text: "x" } }).words, []);
 });
+
+test("한국어 의도 줄 — 표시만 하고, 요청문이 의도 규칙을 넣는다", async () => {
+  const { markIntent } = await import("./correct.js");
+  const t = "[Level 1] 마라톤과 배송업무를 병행하는건 쉽지 않은 일이야.\nEs ist schwerige Job mit Marathon\n[Level 2] Weil ich müde bin.";
+  const m = markIntent(t);
+  assert.equal(m.has, true);
+  assert.equal(m.text.split("\n")[0], "[Level 1] 🇰🇷 마라톤과 배송업무를 병행하는건 쉽지 않은 일이야.");
+  assert.equal(m.text.split("\n")[1], "Es ist schwerige Job mit Marathon");
+  const p = correctionPrompt({ text: t, month: 1, tplTitle: "3단계 확장" });
+  assert.match(p, /🇰🇷 줄은 교정하지 않는다/);
+  assert.doesNotMatch(correctionPrompt({ text: "Heute war gut.", month: 1, tplTitle: "x" }), /🇰🇷 줄은 교정하지 않는다/);
+  assert.equal(markIntent("Nur Deutsch.").has, false);
+});

@@ -203,6 +203,11 @@ export default function Entry({ program, today, userId, onPatch, onError }) {
         </div>
         {!micOk && <span className="muted tiny">🎤 는 Chrome 에서 됩니다</span>}
       </div>
+      {!korean && (
+        <p className="muted tiny intent-tip">
+          💡 칸마다 첫 줄에 <b>하려는 말을 한국어로</b>, 다음 줄에 독일어로 — AI 가 그 뜻에 맞춰 고쳐 줘요(한국어 줄은 교정하지 않아요).
+        </p>
+      )}
       {korean && (
         <div className="notice soft">
           <b>지친 날 모드.</b> 한국어로 적어 두면 교정 단계에서 AI가 핵심 단어만 먼저 주고, 독일어는 내가 말해 봅니다.

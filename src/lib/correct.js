@@ -26,8 +26,30 @@ export const SYSTEM =
   "der als Lieferfahrer bei REWE in Deutschland arbeitet. Erklärungen schreibst du auf Koreanisch, " +
   "Beispiele und Korrekturen auf Deutsch. Antworte ausschließlich mit einem JSON-Objekt, ohne Markdown.";
 
+// 한글이 든 줄 = 학습자가 먼저 적은 **한국어 의도**. 뜻을 먼저 정해 두고 독작하는 방식(2026-09-30 기욱).
+// 교정 대상이 아니라 "무슨 말을 하려던 건지" 알려 주는 줄이다.
+const HANGUL = /[\uAC00-\uD7A3]/;
+const LABEL_LINE = /^\[[^\]]+\]\s*/;
+
+/** 글 → 한국어 의도 줄이 있는가, 그리고 AI 에게 보낼 모양(의도 줄에 🇰🇷 표시) */
+export function markIntent(text) {
+  let has = false;
+  const out = String(text || "")
+    .split("\n")
+    .map((line) => {
+      const label = (line.match(LABEL_LINE) || [""])[0];
+      const body = line.slice(label.length);
+      if (!HANGUL.test(body)) return line;
+      has = true;
+      return `${label}🇰🇷 ${body}`;
+    })
+    .join("\n");
+  return { has, text: out };
+}
+
 /** 교정 요청문 */
 export function correctionPrompt({ text, month, tplTitle, korean }) {
+  const intent = korean ? { has: false, text } : markIntent(text);
   const grammarList = GRAMMAR.map((g) => `${g.key} (${g.label})`).join(", ");
   const common = `
 - "grammar": 이 글에서 연습하기 좋은 B2 문법 1~2개. key 는 반드시 다음 중 하나: ${grammarList}. note 는 한국어 한 줄.
@@ -51,9 +73,18 @@ export function correctionPrompt({ text, month, tplTitle, korean }) {
 ${text}`;
   }
 
+  const intentNote = intent.has
+    ? `
+학습자는 칸마다 **먼저 한국어로 하려는 말(🇰🇷 줄)을 적고**, 그 뜻을 독일어로 옮겼다.
+- 🇰🇷 줄은 교정하지 않는다. 학습자의 **의도**를 파악하는 데만 쓴다. fixes·b1·b2·native 는 독일어 줄만 대상으로 한다.
+- 독일어가 문법은 맞아도 🇰🇷 의도와 뜻이 다르면 의도 쪽으로 고치고(type "Bedeutung"), why 에 "하려던 말은 …" 처럼 적는다.
+- 독일어가 의도의 일부만 옮겼으면 b1 에서 빠진 뜻을 채운다.
+`
+    : "";
+
   return `학습자가 오늘 REWE 배송 중 있었던 일을 독일어로 썼다. ${month}개월차 · 형식: ${tplTitle}.
-학습자는 틀린 곳을 **먼저 스스로 고쳐 볼 것**이다. 아래 JSON 으로 답하라:
-- "b1": { "text": 학습자의 글을 뜻은 그대로 두고 자연스러운 B1 독일어로 고친 글 (칸 이름 [ … ] 은 빼고 이어서),
+학습자는 틀린 곳을 **먼저 스스로 고쳐 볼 것**이다.${intentNote} 아래 JSON 으로 답하라:
+- "b1": { "text": 학습자의 글을 뜻은 그대로 두고 자연스러운 B1 독일어로 고친 글 (칸 이름 [ … ] 과 🇰🇷 줄은 빼고, 독일어만 이어서),
           "fixes": 틀린 곳마다 { "from": 학습자 글에 **그대로 있는** 틀린 부분(1~4단어), "to": 고친 표현,
                     "type": 틀린 유형(독일어 한두 단어), "hint": 한국어 힌트 — **정답 단어를 절대 쓰지 말 것** (예: "명사의 성을 다시 봐요", "종속절 동사 위치"),
                     "why": 한국어로 이유 한 줄 } — 최대 6개, 중요한 것부터. 틀린 곳이 없으면 [] }
@@ -61,7 +92,7 @@ ${text}`;
 - "native": 독일 동료가 실제로 말할 법한 자연스러운 구어체 버전 — **문자열 하나**${common}
 
 학습자의 글:
-${text}`;
+${intent.text}`;
 }
 
 /** 자기 설명 확인 요청문 (짧게 — Haiku) */

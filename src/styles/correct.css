@@ -107,3 +107,4 @@
 .cr-words li b { font-family: var(--font-de); }
 .cr-words li .muted { flex: 1; min-width: 0; font-size: 13px; }
 .cr-have { font-size: 12px; font-weight: 700; color: var(--green); white-space: nowrap; }
+.cr-redo { margin-left: 4px; }
