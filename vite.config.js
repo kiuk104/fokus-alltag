@@ -70,7 +70,7 @@ export default defineConfig(({ mode }) => {
         display: "standalone",
         orientation: "portrait",
         // 스플래시 배경 = 아이콘 배경. 다르면 켜는 순간 아이콘 둘레에 네모 테두리가 보인다.
-        background_color: "#23324f",
+        background_color: "#8a3f1c", // 아이콘: 테라코타 + 해(하루) — 2026-09-30, Lesen·Hanja 와 구분
         theme_color: "#101214",
         categories: ["education"],
         icons: [
