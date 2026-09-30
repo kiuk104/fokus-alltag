@@ -89,7 +89,8 @@ JSON 으로만: { "b2": 같은 내용을 B2 수준으로 한 단계 올린 글(w
 export function extractJson(text) {
   const s = String(text || "");
   const fenced = s.match(/```(?:json)?\s*([\s\S]*?)```/);
-  const body = fenced ? fenced[1] : s;
+  // 울타리가 닫히지 않았으면(응답이 잘림) 여는 울타리만 떼고 본다
+  const body = fenced ? fenced[1] : s.replace(/^[\s\S]*?```(?:json)?\s*/, "");
   const i = body.indexOf("{");
   const j = body.lastIndexOf("}");
   if (i < 0 || j <= i) throw new Error("AI 응답에서 JSON 을 찾지 못했어요");

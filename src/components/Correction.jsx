@@ -52,13 +52,23 @@ export default function Correction({ entry, userId, month, tplTitle, onEntry, on
     setBusy("교정 받는 중…");
     setCapMsg("");
     try {
-      const r = await askClaude(userId, {
-        system: SYSTEM,
-        prompt: correctionPrompt({ text: entry.raw_text, month, tplTitle, korean }),
-        maxTokens: 2500,
-        kind: "alltag-correct",
-      });
-      const d = normalizeCorrection(extractJson(r.text), { text: entry.raw_text });
+      const prompt = correctionPrompt({ text: entry.raw_text, month, tplTitle, korean });
+      const ask = (extra, maxTokens) => askClaude(userId, { system: SYSTEM, prompt: prompt + extra, maxTokens, kind: "alltag-correct" });
+      // 응답이 잘리거나(max_tokens) JSON 이 아닌 말로 오면 한 번만 다시 — 더 길게, JSON 만 달라고 못 박아서
+      let r = await ask("", 4000);
+      let raw;
+      try {
+        raw = extractJson(r.text);
+      } catch {
+        r = await ask("\n\n⚠ 반드시 JSON 객체 하나만 출력하라. 설명·인사·마크다운 금지. 학습자 글에 한국어가 섞여 있어도 독일어 부분만 교정하고 JSON 으로 답하라.", 6000);
+        try {
+          raw = extractJson(r.text);
+        } catch {
+          const why = r.stop === "max_tokens" ? "응답이 너무 길어 잘렸어요" : r.stop === "refusal" ? "AI 가 답을 거절했어요" : `AI 가 JSON 대신 다른 말을 했어요 (${r.stop || "?"})`;
+          throw new Error(`${why} — “${String(r.text || "(빈 응답)").slice(0, 80)}…”`);
+        }
+      }
+      const d = normalizeCorrection(raw, { text: entry.raw_text });
       const correction = { data: d, model: r.model, saving: r.saving, spent: r.spent, at: new Date().toISOString(), forText: entry.raw_text, progress: { step: 0 } };
       onEntry(await patchEntry(userId, entry.id, { correction }));
       onPatchDay({ correct: true }); // 🔵 교정 완료

@@ -87,7 +87,8 @@ async function record(userId, model, usage, kind) {
 
 /**
  * 한 번 부른다. 상한을 먼저 확인하고, 끝나면 기록한다.
- * 반환: { text, model, saving }  — 막혔으면 throw (err.capped = true)
+ * 반환: { text, model, saving, spent, stop }  — 막혔으면 throw (err.capped = true)
+ * stop: Anthropic stop_reason ("end_turn" | "max_tokens" | "refusal" …) — 응답이 잘렸는지 알아야 다시 부를 수 있다
  */
 export async function askClaude(userId, { system, prompt, maxTokens = 2000, kind, main = true }) {
   const u = await usageNow(userId);
@@ -116,5 +117,5 @@ export async function askClaude(userId, { system, prompt, maxTokens = 2000, kind
   if (!res.ok) throw new Error(d?.error?.message || `AI 오류 ${res.status}`);
   await record(userId, pick.model, d.usage, kind);
   const text = (d.content || []).filter((c) => c.type === "text").map((c) => c.text).join("");
-  return { text, model: pick.model, saving: pick.saving, spent: u.spent + costOf(pick.model, d.usage) };
+  return { text, model: pick.model, saving: pick.saving, spent: u.spent + costOf(pick.model, d.usage), stop: d.stop_reason || "" };
 }
