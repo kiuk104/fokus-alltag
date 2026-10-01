@@ -76,6 +76,10 @@ export function parseSrt(text) {
  * 시각 줄("0:05" 또는 "1:02:03")과 글 줄이 번갈아 나온다. 끝 시각이 없어서 다음 시각을 끝으로 쓴다.
  * SRT/VTT 모양이면 그쪽으로 읽는다.
  */
+// 크롬은 시각 옆에 스크린리더용 라벨을 같이 복사한다: "0:07" + "7초", "1:02" + "1분 2초", "1:02:03" + "1시간 2분 3초"
+const LABEL = "(?:\\d+\\s*(?:시간|분|초|hours?|minutes?|seconds?|Std\\.?|Min\\.?|Sek\\.?)[,\\s]*)+";
+const JUNK = /^(동영상 시간 동기화|Sync to video time|Mit Videozeit synchronisieren)$/i;
+
 export function parseTranscriptPaste(text) {
   const s = String(text || "");
   if (/-->/.test(s)) return parseSrt(s);
@@ -84,8 +88,10 @@ export function parseTranscriptPaste(text) {
   for (const line of s.replace(/\r/g, "").split("\n")) {
     const l = line.trim();
     if (!l) continue;
+    if (JUNK.test(l)) continue;
     const t = l.match(/^(\d{1,2}(?::\d{2}){1,2})$/); // 시각만 있는 줄
-    const inline = !t && l.match(/^(\d{1,2}(?::\d{2}){1,2})\s+(\S.*)$/); // "0:05 글" 한 줄 모양
+    // "0:05 글" 또는 크롬 복사 "0:077초글"(시각 + 읽어 주는 라벨 "7초" 가 붙어 나온다) 한 줄 모양
+    const inline = !t && l.match(new RegExp(`^(\\d{1,2}(?::\\d{2}){1,2})(?:\\s+|${LABEL}(?=\\S))(\\S.*)$`));
     if (t || inline) {
       if (cur?.text) out.push(cur);
       cur = { start: toSec((t || inline)[1]), end: 0, text: inline ? clean(inline[2]) : "" };

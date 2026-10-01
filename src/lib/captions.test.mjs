@@ -46,3 +46,21 @@ test("저장소를 못 쓰는 환경에서도 터지지 않는다", () => {
   assert.equal(saveCaptions("AAAAAAAAAAA", []), false);
   clearCaptions("AAAAAAAAAAA");
 });
+
+test("크롬 복사: 시각 뒤에 라벨(7초 · 1분 2초)이 붙어 나와도 읽는다", () => {
+  const text = [
+    "0:000초Bonjour. Äh, hallo. Ich bin heute in Paris.",
+    "0:077초Wir gehen spazieren. Los geht's.",
+    "0:2020초[musik]",
+    "1:021분 2초Ich habe ein Croissant bestellt.",
+    "4:004분Ich vermisse euch.",
+    "",
+    "동영상 시간 동기화",
+  ].join("\n");
+  const s = parseCaptionText(text);
+  assert.ok(s.length >= 4);
+  assert.equal(s[0].start < 0.1, true);
+  assert.match(s[0].text, /^Bonjour\./);
+  assert.ok(s.some((x) => Math.abs(x.start - 62) < 1 && /^Ich habe/.test(x.text)));
+  assert.ok(!s.some((x) => /동영상/.test(x.text)));
+});

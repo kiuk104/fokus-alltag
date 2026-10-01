@@ -27,7 +27,7 @@ export default function CaptionPaste({ count, onSave, onClear }) {
         <ol className="muted tiny">
           <li>유튜브 영상 설명란 아래 <b>스크립트 표시</b>를 누릅니다 (폰은 영상 제목 아래 더보기).</li>
           <li>목록을 모두 복사해서(시각이 함께 복사돼야 해요) 아래에 붙여넣습니다.</li>
-          <li>이 영상은 이 기기에 저장돼서 다음부터는 다시 붙이지 않아도 돼요.</li>
+          <li>한 번 붙이면 계정에 저장돼서 다른 기기(폰)에서도, 다음에도 다시 붙이지 않아도 돼요. PC 에서 붙이는 걸 추천해요.</li>
         </ol>
         <textarea
           className="input"

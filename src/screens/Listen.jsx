@@ -16,6 +16,7 @@ import TandemCompare from "../components/TandemCompare";
 import VideoPlayer from "../components/VideoPlayer";
 import CaptionPaste from "../components/CaptionPaste";
 import { loadCaptions, saveCaptions, clearCaptions } from "../lib/captions";
+import { fetchRemoteCaptions, saveRemoteCaptions, clearRemoteCaptions } from "../lib/captionsRepo";
 import "../styles/listen.css";
 
 export default function Listen({ source, today, row, onPatch, onClose }) {
@@ -59,7 +60,18 @@ export default function Listen({ source, today, row, onPatch, onClose }) {
 
   // 서버가 유튜브 자막을 받을 수 없어서(봇 확인) 사용자가 붙여넣은 것을 영상별로 저장해 두고, 영상이 바뀔 때 다시 읽는다
   useEffect(() => {
-    setSentences(videoId ? loadCaptions(videoId) : []);
+    const local = videoId ? loadCaptions(videoId) : [];
+    setSentences(local);
+    if (!videoId) return;
+    let alive = true;
+    if (local.length) saveRemoteCaptions(videoId, local); // 이 기기에만 있던 것도 계정에 올려 둔다
+    else
+      fetchRemoteCaptions(videoId).then((r) => {
+        if (!alive || !r) return;
+        saveCaptions(videoId, r);
+        setSentences(r);
+      });
+    return () => { alive = false; };
   }, [videoId]);
   const title = data?.list?.find((x) => x.item === curItem)?.title || data?.title || "";
   const videoSents = data?.kind === "video" && sentences.length > 0;
@@ -171,8 +183,8 @@ export default function Listen({ source, today, row, onPatch, onClose }) {
             <CaptionPaste
               key={`c-${videoId}`}
               count={sentences.length}
-              onSave={(sents) => { saveCaptions(videoId, sents); setSentences(sents); }}
-              onClear={() => { clearCaptions(videoId); setSentences([]); }}
+              onSave={(sents) => { saveCaptions(videoId, sents); setSentences(sents); saveRemoteCaptions(videoId, sents); }}
+              onClear={() => { clearCaptions(videoId); setSentences([]); clearRemoteCaptions(videoId); }}
             />
           )}
 
