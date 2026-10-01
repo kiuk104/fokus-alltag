@@ -124,7 +124,7 @@ export default function Listen({ source, today, row, onPatch, onClose }) {
           )}
 
           {data.kind === "video" && videoId && (
-            <VideoPlayer key={videoId} videoId={videoId} title={title} sentences={sentences} onPlayCount={countPlay} apiRef={playerApi}>
+            <VideoPlayer key={`v-${videoId}`} videoId={videoId} title={title} sentences={sentences} onPlayCount={countPlay} apiRef={playerApi}>
               {cover && !reveal && (
                 <button className="lsn-cover" onClick={() => setCover(false)}>
                   자막 가림 · 누르면 걷기
@@ -169,7 +169,7 @@ export default function Listen({ source, today, row, onPatch, onClose }) {
           )}
           {videoId && (
             <CaptionPaste
-              key={videoId}
+              key={`c-${videoId}`}
               count={sentences.length}
               onSave={(sents) => { saveCaptions(videoId, sents); setSentences(sents); }}
               onClear={() => { clearCaptions(videoId); setSentences([]); }}
