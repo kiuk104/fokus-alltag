@@ -15,6 +15,7 @@ import { loadEntries, saveEntry, deleteEntry, loadDraft, saveDraft, peekLegacyDr
 import Correction from "../components/Correction";
 import FieldInput from "../components/FieldInput";
 import Revive from "../components/Revive";
+import PastEntries from "../components/PastEntries";
 
 const hhmm = (iso) => new Date(iso).toLocaleTimeString("ko-KR", { hour: "2-digit", minute: "2-digit" });
 
@@ -290,6 +291,8 @@ export default function Entry({ program, today, userId, onPatch, onError }) {
           </ul>
         </section>
       )}
+
+      <PastEntries userId={userId} today={today} />
     </div>
   );
 }

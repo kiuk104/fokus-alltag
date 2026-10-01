@@ -144,3 +144,9 @@
 .lsn-past { display: flex; flex-direction: column; align-items: flex-start; gap: 2px; width: 100%; text-align: left; padding: 9px 11px; margin-top: 6px; border: 1px solid var(--border); border-radius: 10px; background: transparent; color: inherit; cursor: pointer; }
 .lsn-past.on { border-color: var(--gold); }
 .lsn-past-t { font-size: 14px; line-height: 1.35; }
+
+.past-entries { margin-top: 14px; }
+.pe-item { border-top: 1px solid var(--border); padding: 6px 0; }
+.pe-item summary { display: flex; flex-direction: column; gap: 2px; cursor: pointer; padding: 0; color: var(--ink); font-weight: 400; }
+.pe-first { font-size: 14px; line-height: 1.4; }
+.pe-text { margin: 6px 0 2px; white-space: pre-wrap; line-height: 1.55; font-size: 14px; }
