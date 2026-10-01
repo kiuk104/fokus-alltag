@@ -11,7 +11,7 @@ import { segIndex, prevStart, nextStart } from "../lib/sentences";
 const SPEEDS = [0.75, 1];
 const POLL_MS = 150;
 
-export default function VideoPlayer({ videoId, title, sentences, onPlayCount, apiRef, children }) {
+export default function VideoPlayer({ videoId, title, sentences, onPlayCount, apiRef, covered, onToggleCover, children }) {
   const host = useRef(null);
   const player = useRef(null);
   const [ready, setReady] = useState(false);
@@ -168,6 +168,11 @@ export default function VideoPlayer({ videoId, title, sentences, onPlayCount, ap
             >
               🔁 이 문장 반복
             </button>
+            {onToggleCover && (
+              <button className="ap-loop" onClick={onToggleCover} aria-pressed={covered}>
+                {covered ? "👁 자막 보기" : "🙈 자막 가리기"}
+              </button>
+            )}
             <div className="ap-speed" role="radiogroup" aria-label="속도">
               {SPEEDS.map((sp) => (
                 <button key={sp} role="radio" aria-checked={rate === sp} className={rate === sp ? "on" : ""} onClick={() => setRate(sp)}>

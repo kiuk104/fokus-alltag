@@ -176,7 +176,7 @@ export default function Listen({ source, today, row, onPatch, onClose }) {
           )}
 
           {data.kind === "video" && videoId && (
-            <VideoPlayer key={`v-${videoId}`} videoId={videoId} title={title} sentences={sentences} onPlayCount={countPlay} apiRef={playerApi}>
+            <VideoPlayer key={`v-${videoId}`} videoId={videoId} title={title} sentences={sentences} onPlayCount={countPlay} apiRef={playerApi} covered={cover} onToggleCover={reveal ? null : () => setCover((c) => !c)}>
               {cover && !reveal && (
                 <button className="lsn-cover" onClick={() => setCover(false)}>
                   자막 가림 · 누르면 걷기
@@ -200,7 +200,7 @@ export default function Listen({ source, today, row, onPatch, onClose }) {
               )}
             </div>
           )}
-          {data.kind === "video" && !cover && !reveal && (
+          {data.kind === "video" && !videoSents && !cover && !reveal && (
             <button className="lsn-played" onClick={() => setCover(true)}>🙈 자막 다시 가리기</button>
           )}
           {data.kind === "video" && plays === 0 && (
