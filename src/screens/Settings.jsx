@@ -1,6 +1,6 @@
 // 설정 시트 — 테마 · 듣기 · 시작일 · 로그아웃.
 
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { THEMES, themeSwatches } from "../lib/theme";
 import { loadDeTheme, withDeTheme } from "../lib/deTheme";
 import { supabase } from "../lib/supabase";
@@ -30,8 +30,16 @@ export default function Settings({ settings, onSettings, program, onStartDate, o
     }
   };
 
+  // 바깥(어두운 배경)을 "눌러서 뗀" 경우에만 닫는다. 드롭다운 선택 직후 딸려 온 클릭이
+  // 배경에 닿아 시트가 저절로 닫히던 문제를 막는다.
+  const downOnBackdrop = useRef(false);
+
   return (
-    <div className="sheet-backdrop" onClick={onClose}>
+    <div
+      className="sheet-backdrop"
+      onPointerDown={(e) => { downOnBackdrop.current = e.target === e.currentTarget; }}
+      onClick={(e) => { if (e.target === e.currentTarget && downOnBackdrop.current) onClose(); downOnBackdrop.current = false; }}
+    >
       <div className="sheet" onClick={(e) => e.stopPropagation()} role="dialog" aria-label="설정">
         <div className="sheet-head">
           <h2>설정</h2>
