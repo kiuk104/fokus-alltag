@@ -14,8 +14,10 @@ export default function ListenSettings({ program, month, onSave }) {
   const base = defaultRotation(month);
   const urlOk = !cUrl.trim() || looksLikeUrl(cUrl);
 
-  const save = async () => {
-    const clean = Object.fromEntries(Object.entries(rotation).filter(([, v]) => v));
+  // 요일을 고르면 바로 저장한다 — 예전에는 아래 [저장]을 눌러야 해서, 고르고 닫으면 적용되지 않았다
+  const save = async (rot = rotation) => {
+    if (!urlOk) return;
+    const clean = Object.fromEntries(Object.entries(rot).filter(([, v]) => v));
     const custom = cUrl.trim() ? { name: cName.trim() || "내 링크", url: cUrl.trim() } : undefined;
     // 내 링크를 지웠는데 요일에 "custom" 이 남아 있으면 기본으로 되돌린다
     for (const k of Object.keys(clean)) if (clean[k] === "custom" && !custom) delete clean[k];
@@ -33,7 +35,11 @@ export default function ListenSettings({ program, month, onSave }) {
             <select
               className="input ls-sel"
               value={rotation[wd] || ""}
-              onChange={(e) => setRotation((r) => ({ ...r, [wd]: e.target.value }))}
+              onChange={(e) => {
+                const next = { ...rotation, [wd]: e.target.value };
+                setRotation(next);
+                save(next);
+              }}
             >
               <option value="">기본 · {SOURCES[base[wd]].name}</option>
               {Object.entries(SOURCES).map(([id, s]) => (
@@ -59,8 +65,8 @@ export default function ListenSettings({ program, month, onSave }) {
       </div>
 
       <div className="row">
-        <span className="muted tiny grow">{msg || "요일마다 다른 곳을 들으면 한 가지 목소리에만 익숙해지지 않아요."}</span>
-        <button className="btn" disabled={!urlOk} onClick={save}>저장</button>
+        <span className="muted tiny grow">{msg || "요일을 고르면 바로 저장돼요. 내 링크는 [저장]을 눌러 주세요."}</span>
+        <button className="btn" disabled={!urlOk} onClick={() => save()}>저장</button>
       </div>
     </div>
   );
