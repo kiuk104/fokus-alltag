@@ -85,3 +85,19 @@ export async function listCaptionVideos() {
     return [];
   }
 }
+
+/** 주소로 연 영상을 지난 영상 목록에 올려 둔다(자막은 아직 없어도 된다). 이미 자막이 있으면 자막은 그대로 두고 시각·제목만 고친다 */
+export async function rememberVideo(videoId) {
+  try {
+    const user = await uid();
+    if (!user) return false;
+    const title = await videoTitle(videoId);
+    const { error } = await supabase.from("alltag_captions").upsert(
+      { user_id: user, video_id: videoId, updated_at: new Date().toISOString(), ...(title ? { title } : {}) },
+      { onConflict: "user_id,video_id" },
+    );
+    return !error;
+  } catch {
+    return false;
+  }
+}

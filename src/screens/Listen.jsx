@@ -18,7 +18,7 @@ import { loadYouTubeApi } from "../lib/ytPlayer";
 import CaptionPaste from "../components/CaptionPaste";
 import PastVideos from "../components/PastVideos";
 import { loadCaptions, saveCaptions, clearCaptions } from "../lib/captions";
-import { fetchRemoteCaptions, saveRemoteCaptions, clearRemoteCaptions, latestCaptionVideo } from "../lib/captionsRepo";
+import { fetchRemoteCaptions, saveRemoteCaptions, clearRemoteCaptions, latestCaptionVideo, rememberVideo } from "../lib/captionsRepo";
 import "../styles/listen.css";
 
 export default function Listen({ source, today, row, onPatch, onClose }) {
@@ -205,7 +205,7 @@ export default function Listen({ source, today, row, onPatch, onClose }) {
               onSubmit={(e) => {
                 e.preventDefault();
                 const m = String(new FormData(e.currentTarget).get("u") || "").match(/(?:v=|youtu\.be\/|shorts\/|embed\/)([A-Za-z0-9_-]{11})|^([A-Za-z0-9_-]{11})$/);
-                if (m) setItem(m[1] || m[2]);
+                if (m) { setItem(m[1] || m[2]); rememberVideo(m[1] || m[2]); } // 지난 영상 목록에도 올린다
               }}
             >
               <p className="muted tiny">영상 목록을 못 받았어요. 최신 영상을 찾는 중이에요. 안 열리면 영상 주소(유튜브 공유 → 링크 복사)를 붙여넣어도 문장 이동(⏮ 🔁 ⏭)을 쓸 수 있어요.</p>
