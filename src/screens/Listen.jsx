@@ -24,6 +24,7 @@ import "../styles/listen.css";
 export default function Listen({ source, today, row, onPatch, onClose }) {
   const [item, setItem] = useState(null); // Nachrichtenleicht 기사 · Easy German 영상 고르기
   const [data, setData] = useState(null);
+  const [urlMsg, setUrlMsg] = useState("");
   const [err, setErr] = useState("");
   const [plays, setPlays] = useState(0);
   const [line, setLine] = useState(row.note || "");
@@ -199,22 +200,6 @@ export default function Listen({ source, today, row, onPatch, onClose }) {
               )}
             </div>
           )}
-          {data.kind === "video" && !videoId && data.playlist && (
-            <form
-              className="lsn-paste-url"
-              onSubmit={(e) => {
-                e.preventDefault();
-                const m = String(new FormData(e.currentTarget).get("u") || "").match(/(?:v=|youtu\.be\/|shorts\/|embed\/)([A-Za-z0-9_-]{11})|^([A-Za-z0-9_-]{11})$/);
-                if (m) { setItem(m[1] || m[2]); rememberVideo(m[1] || m[2]); } // 지난 영상 목록에도 올린다
-              }}
-            >
-              <p className="muted tiny">영상 목록을 못 받았어요. 최신 영상을 찾는 중이에요. 안 열리면 영상 주소(유튜브 공유 → 링크 복사)를 붙여넣어도 문장 이동(⏮ 🔁 ⏭)을 쓸 수 있어요.</p>
-              <div className="row">
-                <input className="input grow" name="u" placeholder="https://www.youtube.com/watch?v=…" inputMode="url" autoCapitalize="none" />
-                <button className="btn" type="submit">열기</button>
-              </div>
-            </form>
-          )}
           {data.kind === "video" && !cover && !reveal && (
             <button className="lsn-played" onClick={() => setCover(true)}>🙈 자막 다시 가리기</button>
           )}
@@ -227,6 +212,31 @@ export default function Listen({ source, today, row, onPatch, onClose }) {
               refreshKey={sentences.length}
               onPick={(id) => { setItem(id); setPlays(0); setReveal(false); setOpened(false); setCover(true); }}
             />
+          )}
+          {data.kind === "video" && (
+            <details className="lsn-paste" open={!videoId}>
+              <summary>다른 영상 주소로 열기</summary>
+              <form
+                className="lsn-paste-body"
+                onSubmit={(e) => {
+                  e.preventDefault();
+                  const f = e.currentTarget;
+                  const m = String(new FormData(f).get("u") || "").match(/(?:v=|youtu\.be\/|shorts\/|embed\/)([A-Za-z0-9_-]{11})|^([A-Za-z0-9_-]{11})$/);
+                  if (!m) return setUrlMsg("유튜브 영상 주소를 찾지 못했어요. 공유 → 링크 복사로 받은 주소를 붙여 주세요.");
+                  const id = m[1] || m[2];
+                  setItem(id); setPlays(0); setReveal(false); setOpened(false); setCover(true);
+                  rememberVideo(id); // 지난 영상 목록에도 올린다
+                  setUrlMsg("열었어요. 지난 영상 목록에도 저장돼요.");
+                  f.reset();
+                }}
+              >
+                <div className="row">
+                  <input className="input grow" name="u" placeholder="https://www.youtube.com/watch?v=…" inputMode="url" autoCapitalize="none" />
+                  <button className="btn" type="submit">열기</button>
+                </div>
+                {urlMsg && <p className="muted tiny">{urlMsg}</p>}
+              </form>
+            </details>
           )}
           {videoId && (
             <CaptionPaste
