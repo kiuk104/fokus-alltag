@@ -27,8 +27,9 @@ export async function saveRemoteCaptions(videoId, sentences) {
   try {
     const user = await uid();
     if (!user) return false;
+    const title = await videoTitle(videoId); // 지난 영상 목록용 — 못 받으면 빼고 올린다(기존 제목은 그대로 둔다)
     const { error } = await supabase.from("alltag_captions").upsert(
-      { user_id: user, video_id: videoId, sentences, updated_at: new Date().toISOString() },
+      { user_id: user, video_id: videoId, sentences, updated_at: new Date().toISOString(), ...(title ? { title } : {}) },
       { onConflict: "user_id,video_id" },
     );
     return !error;
@@ -57,5 +58,30 @@ export async function latestCaptionVideo() {
     return error ? null : data?.video_id || null;
   } catch {
     return null;
+  }
+}
+
+/** 유튜브 oEmbed 로 제목 받기 — 실패하면 null */
+async function videoTitle(videoId) {
+  try {
+    const r = await fetch(`https://www.youtube.com/oembed?format=json&url=${encodeURIComponent(`https://www.youtube.com/watch?v=${videoId}`)}`);
+    return r.ok ? String((await r.json()).title || "").slice(0, 200) || null : null;
+  } catch {
+    return null;
+  }
+}
+
+/** 지난 영상 목록 — 자막을 붙인 영상, 최근 것부터. [{ id, title, at }] */
+export async function listCaptionVideos() {
+  try {
+    const user = await uid();
+    if (!user) return [];
+    let r = await supabase
+      .from("alltag_captions").select("video_id,title,updated_at").eq("user_id", user).order("updated_at", { ascending: false }).limit(40);
+    if (r.error) // title 칸을 아직 안 만들었으면 제목 없이
+      r = await supabase.from("alltag_captions").select("video_id,updated_at").eq("user_id", user).order("updated_at", { ascending: false }).limit(40);
+    return (r.data || []).map((x) => ({ id: x.video_id, title: x.title || "", at: x.updated_at }));
+  } catch {
+    return [];
   }
 }

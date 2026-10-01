@@ -16,6 +16,7 @@ import TandemCompare from "../components/TandemCompare";
 import VideoPlayer from "../components/VideoPlayer";
 import { loadYouTubeApi } from "../lib/ytPlayer";
 import CaptionPaste from "../components/CaptionPaste";
+import PastVideos from "../components/PastVideos";
 import { loadCaptions, saveCaptions, clearCaptions } from "../lib/captions";
 import { fetchRemoteCaptions, saveRemoteCaptions, clearRemoteCaptions, latestCaptionVideo } from "../lib/captionsRepo";
 import "../styles/listen.css";
@@ -72,7 +73,7 @@ export default function Listen({ source, today, row, onPatch, onClose }) {
     document.body.appendChild(host);
     const el = document.createElement("div");
     host.appendChild(el);
-    const done = (id) => alive && id && setItem(id);
+    const done = (id) => alive && id && setItem((prev) => prev || id); // 그새 사용자가 지난 영상을 골랐으면 그대로 둔다
     loadYouTubeApi()
       .then((YT) => {
         if (!alive) return;
@@ -216,6 +217,13 @@ export default function Listen({ source, today, row, onPatch, onClose }) {
           )}
           {data.kind === "video" && plays === 0 && (
             <button className="lsn-played" onClick={countPlay}>한 번 다 봤어요</button>
+          )}
+          {data.kind === "video" && (
+            <PastVideos
+              current={videoId}
+              refreshKey={sentences.length}
+              onPick={(id) => { setItem(id); setPlays(0); setReveal(false); setOpened(false); setCover(true); }}
+            />
           )}
           {videoId && (
             <CaptionPaste

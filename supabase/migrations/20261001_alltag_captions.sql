@@ -17,3 +17,6 @@ alter table public.alltag_captions enable row level security;
 drop policy if exists "alltag_captions_own" on public.alltag_captions;
 create policy "alltag_captions_own" on public.alltag_captions
   for all using (auth.uid() = user_id) with check (auth.uid() = user_id);
+
+-- 지난 영상 목록에 보여 줄 제목 (나중에 추가 — 이미 위를 실행했어도 이 줄만 다시 돌리면 된다)
+alter table public.alltag_captions add column if not exists title text;
