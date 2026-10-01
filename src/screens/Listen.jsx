@@ -14,6 +14,7 @@ import { openApp } from "../lib/links";
 import AudioPlayer from "../components/AudioPlayer";
 import TandemCompare from "../components/TandemCompare";
 import VideoPlayer from "../components/VideoPlayer";
+import { loadYouTubeApi } from "../lib/ytPlayer";
 import CaptionPaste from "../components/CaptionPaste";
 import { loadCaptions, saveCaptions, clearCaptions } from "../lib/captions";
 import { fetchRemoteCaptions, saveRemoteCaptions, clearRemoteCaptions, latestCaptionVideo } from "../lib/captionsRepo";
@@ -58,14 +59,42 @@ export default function Listen({ source, today, row, onPatch, onClose }) {
   const curItem = item || (data?.kind === "video" ? data?.videoId : data?.item);
   const videoId = data?.kind === "video" ? curItem : null;
 
-  // 영상 목록을 못 받은 날(재생목록 대체 화면)에는 PC 에서 마지막으로 자막을 붙인 영상을 바로 연다
+  // 영상 목록을 못 받은 날(재생목록 대체 화면): 유튜브 플레이어에게 재생목록의 맨 앞(최신) 영상 id 를 물어 바로 연다.
+  // 그것도 안 되면 PC 에서 마지막으로 자막을 붙인 영상을 연다. 주소를 붙여넣는 칸은 마지막 수단.
   const noList = data?.kind === "video" && !data.videoId && !item;
   useEffect(() => {
     if (!noList) return;
     let alive = true;
-    latestCaptionVideo().then((id) => alive && id && setItem(id));
-    return () => { alive = false; };
-  }, [noList]);
+    let p = null;
+    let timer = 0;
+    const host = document.createElement("div");
+    host.style.cssText = "position:fixed;left:-9999px;width:200px;height:120px";
+    document.body.appendChild(host);
+    const el = document.createElement("div");
+    host.appendChild(el);
+    const done = (id) => alive && id && setItem(id);
+    loadYouTubeApi()
+      .then((YT) => {
+        if (!alive) return;
+        p = new YT.Player(el, {
+          host: "https://www.youtube-nocookie.com",
+          playerVars: { listType: "playlist", list: data.playlist, enablejsapi: 1, origin: window.location.origin },
+        });
+        let tries = 0;
+        timer = setInterval(() => {
+          const ids = p?.getPlaylist?.();
+          if (ids?.length) { clearInterval(timer); done(ids[0]); }
+          else if (++tries > 20) { clearInterval(timer); latestCaptionVideo().then(done); } // 10초
+        }, 500);
+      })
+      .catch(() => latestCaptionVideo().then(done));
+    return () => {
+      alive = false;
+      clearInterval(timer);
+      try { p?.destroy(); } catch { /* 이미 없어졌다 */ }
+      host.remove();
+    };
+  }, [noList, data?.playlist]);
 
   // 서버가 유튜브 자막을 받을 수 없어서(봇 확인) 사용자가 붙여넣은 것을 영상별로 저장해 두고, 영상이 바뀔 때 다시 읽는다
   useEffect(() => {
@@ -178,7 +207,7 @@ export default function Listen({ source, today, row, onPatch, onClose }) {
                 if (m) setItem(m[1] || m[2]);
               }}
             >
-              <p className="muted tiny">영상 목록을 못 받았어요. PC 에서 자막을 붙인 영상이 있으면 자동으로 열려요. 영상 주소(유튜브 공유 → 링크 복사)를 붙여넣어도 문장 이동(⏮ 🔁 ⏭)을 쓸 수 있어요.</p>
+              <p className="muted tiny">영상 목록을 못 받았어요. 최신 영상을 찾는 중이에요. 안 열리면 영상 주소(유튜브 공유 → 링크 복사)를 붙여넣어도 문장 이동(⏮ 🔁 ⏭)을 쓸 수 있어요.</p>
               <div className="row">
                 <input className="input grow" name="u" placeholder="https://www.youtube.com/watch?v=…" inputMode="url" autoCapitalize="none" />
                 <button className="btn" type="submit">열기</button>
