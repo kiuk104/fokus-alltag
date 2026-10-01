@@ -46,3 +46,16 @@ export async function clearRemoteCaptions(videoId) {
     /* 무시 */
   }
 }
+
+/** 가장 최근에 자막을 붙인 영상 id — 서버가 영상 목록을 못 받을 때(폰) PC 에서 붙인 영상을 바로 열기 위해 */
+export async function latestCaptionVideo() {
+  try {
+    const user = await uid();
+    if (!user) return null;
+    const { data, error } = await supabase
+      .from("alltag_captions").select("video_id").eq("user_id", user).order("updated_at", { ascending: false }).limit(1).maybeSingle();
+    return error ? null : data?.video_id || null;
+  } catch {
+    return null;
+  }
+}

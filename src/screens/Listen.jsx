@@ -16,7 +16,7 @@ import TandemCompare from "../components/TandemCompare";
 import VideoPlayer from "../components/VideoPlayer";
 import CaptionPaste from "../components/CaptionPaste";
 import { loadCaptions, saveCaptions, clearCaptions } from "../lib/captions";
-import { fetchRemoteCaptions, saveRemoteCaptions, clearRemoteCaptions } from "../lib/captionsRepo";
+import { fetchRemoteCaptions, saveRemoteCaptions, clearRemoteCaptions, latestCaptionVideo } from "../lib/captionsRepo";
 import "../styles/listen.css";
 
 export default function Listen({ source, today, row, onPatch, onClose }) {
@@ -57,6 +57,15 @@ export default function Listen({ source, today, row, onPatch, onClose }) {
   // 영상은 고른 영상 id 로 바꿔 끼운다 (Easy German 은 목록을 받아 두고 서버를 다시 부르지 않는다)
   const curItem = item || (data?.kind === "video" ? data?.videoId : data?.item);
   const videoId = data?.kind === "video" ? curItem : null;
+
+  // 영상 목록을 못 받은 날(재생목록 대체 화면)에는 PC 에서 마지막으로 자막을 붙인 영상을 바로 연다
+  const noList = data?.kind === "video" && !data.videoId && !item;
+  useEffect(() => {
+    if (!noList) return;
+    let alive = true;
+    latestCaptionVideo().then((id) => alive && id && setItem(id));
+    return () => { alive = false; };
+  }, [noList]);
 
   // 서버가 유튜브 자막을 받을 수 없어서(봇 확인) 사용자가 붙여넣은 것을 영상별로 저장해 두고, 영상이 바뀔 때 다시 읽는다
   useEffect(() => {
@@ -169,7 +178,7 @@ export default function Listen({ source, today, row, onPatch, onClose }) {
                 if (m) setItem(m[1] || m[2]);
               }}
             >
-              <p className="muted tiny">영상 목록을 못 받았어요. 영상 주소를 붙여넣으면 문장 이동(⏮ 🔁 ⏭)을 쓸 수 있어요.</p>
+              <p className="muted tiny">영상 목록을 못 받았어요. PC 에서 자막을 붙인 영상이 있으면 자동으로 열려요. 영상 주소(유튜브 공유 → 링크 복사)를 붙여넣어도 문장 이동(⏮ 🔁 ⏭)을 쓸 수 있어요.</p>
               <div className="row">
                 <input className="input grow" name="u" placeholder="https://www.youtube.com/watch?v=…" inputMode="url" autoCapitalize="none" />
                 <button className="btn" type="submit">열기</button>
