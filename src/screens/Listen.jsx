@@ -8,11 +8,14 @@
 // 영상(Easy German)은 자막이 화면에 박혀 있어서, 원고 대신 화면 아래를 가림 띠로 덮었다가 ④에서 걷는다.
 // App.jsx 에서 탭 밖(맨 위)에 렌더한다 — 탭 안에 두면 다른 탭에서 열 때 안 뜬다.
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { fetchListen } from "../lib/listenApi";
 import { openApp } from "../lib/links";
 import AudioPlayer from "../components/AudioPlayer";
 import TandemCompare from "../components/TandemCompare";
+import VideoPlayer from "../components/VideoPlayer";
+import CaptionPaste from "../components/CaptionPaste";
+import { loadCaptions, saveCaptions, clearCaptions } from "../lib/captions";
 import "../styles/listen.css";
 
 export default function Listen({ source, today, row, onPatch, onClose }) {
@@ -24,6 +27,8 @@ export default function Listen({ source, today, row, onPatch, onClose }) {
   const [reveal, setReveal] = useState(false); // 원고가 지금 펼쳐져 있는가 (닫았다 다시 열 수 있다)
   const [opened, setOpened] = useState(false); // 한 번이라도 열었는가 — 단계 표시용
   const [cover, setCover] = useState(true);
+  const [sentences, setSentences] = useState([]); // 영상의 문장 구간 — 붙여넣은 자막을 영상별로 저장해 둔 것
+  const playerApi = useRef(null); // 원고의 문장을 눌러 그 자리부터 듣기
 
   useEffect(() => {
     let alive = true;
@@ -51,8 +56,18 @@ export default function Listen({ source, today, row, onPatch, onClose }) {
   // 영상은 고른 영상 id 로 바꿔 끼운다 (Easy German 은 목록을 받아 두고 서버를 다시 부르지 않는다)
   const curItem = item || (data?.kind === "video" ? data?.videoId : data?.item);
   const videoId = data?.kind === "video" ? curItem : null;
+
+  // 서버가 유튜브 자막을 받을 수 없어서(봇 확인) 사용자가 붙여넣은 것을 영상별로 저장해 두고, 영상이 바뀔 때 다시 읽는다
+  useEffect(() => {
+    setSentences(videoId ? loadCaptions(videoId) : []);
+  }, [videoId]);
   const title = data?.list?.find((x) => x.item === curItem)?.title || data?.title || "";
-  const hasScript = (data?.script?.length || 0) > 0 || (data?.words?.length || 0) > 0;
+  const videoSents = data?.kind === "video" && sentences.length > 0;
+  const scriptBlocks = useMemo(
+    () => (data?.script?.length ? data.script : sentences.map((x) => ({ h: "", p: x.text }))),
+    [data, sentences],
+  );
+  const hasScript = scriptBlocks.length > 0 || (data?.words?.length || 0) > 0;
   const step = opened ? 4 : saved ? (plays >= 2 ? 4 : 3) : plays >= 1 ? 2 : 1;
 
   return (
@@ -102,15 +117,20 @@ export default function Listen({ source, today, row, onPatch, onClose }) {
             <AudioPlayer key={data.audio} src={data.audio} onPlayCount={countPlay} />
           )}
 
-          {data.kind === "video" && (videoId || data.playlist) && (
+          {data.kind === "video" && videoId && (
+            <VideoPlayer key={videoId} videoId={videoId} title={title} sentences={sentences} onPlayCount={countPlay} apiRef={playerApi}>
+              {cover && !reveal && (
+                <button className="lsn-cover" onClick={() => setCover(false)}>
+                  자막 가림 · 누르면 걷기
+                </button>
+              )}
+            </VideoPlayer>
+          )}
+          {data.kind === "video" && !videoId && data.playlist && (
             <div className="lsn-video">
               <iframe
-                key={videoId || data.playlist}
-                src={
-                  videoId
-                    ? `https://www.youtube-nocookie.com/embed/${videoId}?playsinline=1&rel=0&modestbranding=1`
-                    : `https://www.youtube-nocookie.com/embed/videoseries?list=${data.playlist}&playsinline=1&rel=0&modestbranding=1`
-                }
+                key={data.playlist}
+                src={`https://www.youtube-nocookie.com/embed/videoseries?list=${data.playlist}&playsinline=1&rel=0&modestbranding=1`}
                 title={title}
                 allow="autoplay; encrypted-media; picture-in-picture"
                 allowFullScreen
@@ -124,6 +144,14 @@ export default function Listen({ source, today, row, onPatch, onClose }) {
           )}
           {data.kind === "video" && plays === 0 && (
             <button className="lsn-played" onClick={countPlay}>한 번 다 봤어요</button>
+          )}
+          {videoId && (
+            <CaptionPaste
+              key={videoId}
+              count={sentences.length}
+              onSave={(sents) => { saveCaptions(videoId, sents); setSentences(sents); }}
+              onClear={() => { clearCaptions(videoId); setSentences([]); }}
+            />
           )}
 
           <ol className="lsn-steps">
@@ -157,7 +185,10 @@ export default function Listen({ source, today, row, onPatch, onClose }) {
             </li>
             <li className={step === 3 ? "now" : step > 3 ? "done" : ""}>
               <b>한 번 더 듣기</b>
-              <span>방금 쓴 한 줄이 맞는지 확인하며. 안 들리는 문장은 ⏮ 로 돌아가거나 🔁 로 반복.</span>
+              <span>
+                방금 쓴 한 줄이 맞는지 확인하며. 안 들리는 문장은 ⏮ 로 돌아가거나 🔁 로 반복.
+                {data.kind === "video" && !videoSents && " (영상은 자막을 붙여넣으면 ⏮·🔁 이 켜져요.)"}
+              </span>
             </li>
             <li className={step === 4 ? "now" : ""}>
               <b>원고 열기</b>
@@ -178,17 +209,28 @@ export default function Listen({ source, today, row, onPatch, onClose }) {
 
           {reveal && (
             <section className="lsn-script">
-              {line.trim() && <TandemCompare line={line.trim()} script={data.script} words={data.words} />}
+              {line.trim() && <TandemCompare line={line.trim()} script={scriptBlocks} words={data.words} />}
               {data.kind === "video" && <p className="muted tiny">가림 띠를 걷었어요 — 자막을 보며 한 번 더.</p>}
               {data.kind === "audio" && !hasScript && (
                 <p className="muted tiny">이 출처는 원고가 없어요. (다음 단계에서 AI 받아쓰기로 채울 예정)</p>
               )}
-              {data.script?.map((b, i) => (
-                <div key={i} className="lsn-block">
-                  {b.h && <h3>{b.h}</h3>}
-                  {b.p && <p lang="de">{b.p}</p>}
+              {videoSents ? (
+                <div className="lsn-sents">
+                  {sentences.map((x) => (
+                    <button key={x.i} className="lsn-sent" lang="de" onClick={() => playerApi.current?.goto(x.i)}>
+                      <i>{x.i + 1}</i>
+                      {x.text}
+                    </button>
+                  ))}
                 </div>
-              ))}
+              ) : (
+                data.script?.map((b, i) => (
+                  <div key={i} className="lsn-block">
+                    {b.h && <h3>{b.h}</h3>}
+                    {b.p && <p lang="de">{b.p}</p>}
+                  </div>
+                ))
+              )}
               {data.words?.length > 0 && (
                 <div className="lsn-words">
                   <div className="lsn-words-head">낱말 풀이 (쉬운 독일어)</div>

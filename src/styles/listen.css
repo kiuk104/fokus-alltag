@@ -119,3 +119,21 @@
 .td-orig p { font-family: var(--font-de); font-size: 14.5px; line-height: 1.65; }
 .td-orig p + p { margin-top: 6px; }
 .td-orig mark { background: color-mix(in srgb, var(--green) 22%, transparent); color: inherit; border-radius: 3px; padding: 0 2px; }
+
+/* ── 영상 자막 붙여넣기 · 문장 목록 (components/CaptionPaste.jsx · VideoPlayer.jsx) ── */
+.lsn-yt { position: absolute; inset: 0; }
+.lsn-paste { margin: 8px 0 2px; border: 1.5px dashed var(--border); border-radius: 10px; background: var(--card); }
+.lsn-paste summary { padding: 9px 12px; font-size: 13px; color: var(--muted); cursor: pointer; }
+.lsn-paste[open] summary { color: var(--ink); font-weight: 700; }
+.lsn-paste-body { padding: 0 12px 12px; display: flex; flex-direction: column; gap: 8px; }
+.lsn-paste-body ol { padding-left: 18px; line-height: 1.6; }
+.lsn-paste-body textarea { width: 100%; resize: vertical; font-size: 13px; }
+.lsn-paste-row { display: flex; gap: 8px; }
+.lsn-sents { display: flex; flex-direction: column; gap: 4px; }
+.lsn-sent {
+  display: flex; gap: 10px; align-items: baseline; text-align: left; width: 100%;
+  padding: 8px 10px; border-radius: 9px; border: 1.5px solid transparent; background: transparent;
+  color: var(--ink); font-family: var(--font-de); font-size: 15px; line-height: 1.55;
+}
+.lsn-sent:active { border-color: var(--gold); background: var(--cream); }
+.lsn-sent i { flex: none; min-width: 22px; font-style: normal; font-size: 11.5px; color: var(--muted); font-variant-numeric: tabular-nums; }

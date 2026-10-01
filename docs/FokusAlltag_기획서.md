@@ -89,6 +89,11 @@ DE `Basiswortschatz_로드맵.md` 의 착수 전 항목 중 아래를 Alltag 가
   - 순서: ① 원고 없이 듣기 → ② 들은 내용 한 줄(독일어, `alltag_days.note`, 저장하면 듣기 체크) → ③ 한 번 더 → ④ 원고 열기 ("그냥 보기"로 언제든)
   - 파서는 2026-09-28 실제 페이지로 검증(`api/_listen-parse.js`). 사이트 구조가 바뀌면 여기만 고친다 — 실패해도 "사이트에서 듣기" 링크로 버틴다
 - **2단계(보류)** — 원고 없는 오디오(tagesschau·내 링크)에 AI 받아쓰기, 만든 원고는 저장. 편당 1~3센트. 1단계 써 보고 결정
+- **Easy German 문장 이동 (2026-10-01 구현)** — 영상에도 ⏮ 이전 문장 · 🔁 이 문장 반복 · 다음 문장 ⏭ · 0.75/1배
+  - 서버가 유튜브 자막을 직접 받는 길은 **막혀 있다** — Vercel(데이터센터)에서 영상 페이지·플레이어 API 모두 `LOGIN_REQUIRED`(봇 확인), 임베드 방식은 "영상 없음". `api/listen-captions.js` 의 GET 은 진단용으로 남겨 두었고 앱은 쓰지 않는다
+  - 대신 **붙여넣기**: 영상의 "스크립트 표시"를 복사해 `components/CaptionPaste.jsx` 에 붙이면 `api/_captions-parse.js`(서버·앱 공용 파서)가 마침표·물음표·느낌표 기준 문장으로 나눈다. 영상 ID별로 이 기기 localStorage(`fa-caps-<id>`)에 저장 — 영상마다 한 번만
+  - 영상은 유튜브 IFrame Player API(`components/VideoPlayer.jsx` · `lib/ytPlayer.js`)로 조작한다. 영상 파일은 내려받지 않는다. 4단계 원고 열기는 문장 목록(탭하면 그 문장부터 재생)
+  - 한계: 다른 기기에서는 다시 붙여넣어야 한다. 기기 간 공유가 필요해지면 `alltag_` 테이블에 저장(마이그레이션 필요)
 - 나중 후보: 원고 속 단어를 탭해 DE 내 단어로 보내기(연결 지점 2와 같은 통로)
 
 ---
@@ -269,7 +274,7 @@ AI 호출은 **교정 1회**(전부 받아 두고 화면에서만 나눠 연다 
 **CP2까지만 끝나도 내일부터 계획을 시작할 수 있다.** CP3~5는 쓰면서 붙인다.
 
 **진행 기록**
-- CP0 ✅ 2026-09-23 · CP1 ✅ 2026-09-28 · 듣기 1단계(0-4절) ✅ 2026-09-28
+- CP0 ✅ 2026-09-23 · CP1 ✅ 2026-09-28 · 듣기 1단계(0-4절) ✅ 2026-09-28 · 듣기 Easy German 문장 이동(붙여넣은 자막) 구현 2026-10-01 — 실기기 확인 대기
 - CP2 ✅ 2026-09-28 — `src/lib/ai.js`(DE anthropic 함수 · ai_usage_log · 상한), `correct.js`(요청문·해석), `deWrite.js`+`tags.js`(user_sentences insert · 기존 태그 맞춤), `components/Correction.jsx`(5단계). 문법 태그는 독일어(`GRAMMAR[].tag`). DE `aiUsage.js` MODEL_PRICING 에 claude-sonnet-5 추가
 - CP3 ✅ 2026-09-28 — 🔴 `screens/Recall.jsx`(한국어 → 말하기 → 단어 단위 채점(`lib/recall.js`, AI 없음) · 첫 글자 힌트 · 막힌 것만 한 번 더 · 결과는 `correction.recall`), 되살리기 `components/Revive.jsx`(14·7·3·1일 전 문장 → 오늘 상황으로 바꿔 한 문장 · `parts.revive`), 원어민 발음 `lib/audio.js`+`api/tts.js`(DE 와 같은 파일 · `card_meta` upsert 만 · 실패하면 기기 목소리), 새 단어 → `custom_words`(교정 응답 `words` · DE 기본 단어장/내 단어에 있으면 ✓ · 단어장 Alltag). 가드레일에 `generated_words`(읽기)·`card_meta`(upsert) 추가. 연속 일수·10분 모드는 CP1 에서 이미 있음
 
