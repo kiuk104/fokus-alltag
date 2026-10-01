@@ -215,6 +215,9 @@ export default function Listen({ source, today, row, onPatch, onClose }) {
               </div>
             </form>
           )}
+          {data.kind === "video" && !cover && !reveal && (
+            <button className="lsn-played" onClick={() => setCover(true)}>🙈 자막 다시 가리기</button>
+          )}
           {data.kind === "video" && plays === 0 && (
             <button className="lsn-played" onClick={countPlay}>한 번 다 봤어요</button>
           )}
