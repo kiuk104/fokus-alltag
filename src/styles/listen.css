@@ -137,3 +137,6 @@
 }
 .lsn-sent:active { border-color: var(--gold); background: var(--cream); }
 .lsn-sent i { flex: none; min-width: 22px; font-style: normal; font-size: 11.5px; color: var(--muted); font-variant-numeric: tabular-nums; }
+
+.lsn-paste-url { margin: 10px 0; }
+.lsn-paste-url .row { gap: 8px; margin-top: 6px; }

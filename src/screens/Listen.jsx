@@ -148,6 +148,22 @@ export default function Listen({ source, today, row, onPatch, onClose }) {
               )}
             </div>
           )}
+          {data.kind === "video" && !videoId && data.playlist && (
+            <form
+              className="lsn-paste-url"
+              onSubmit={(e) => {
+                e.preventDefault();
+                const m = String(new FormData(e.currentTarget).get("u") || "").match(/(?:v=|youtu\.be\/|shorts\/|embed\/)([A-Za-z0-9_-]{11})|^([A-Za-z0-9_-]{11})$/);
+                if (m) setItem(m[1] || m[2]);
+              }}
+            >
+              <p className="muted tiny">영상 목록을 못 받았어요. 영상 주소를 붙여넣으면 문장 이동(⏮ 🔁 ⏭)을 쓸 수 있어요.</p>
+              <div className="row">
+                <input className="input grow" name="u" placeholder="https://www.youtube.com/watch?v=…" inputMode="url" autoCapitalize="none" />
+                <button className="btn" type="submit">열기</button>
+              </div>
+            </form>
+          )}
           {data.kind === "video" && plays === 0 && (
             <button className="lsn-played" onClick={countPlay}>한 번 다 봤어요</button>
           )}
