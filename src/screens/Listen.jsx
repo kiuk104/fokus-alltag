@@ -116,6 +116,12 @@ export default function Listen({ source, today, row, onPatch, onClose }) {
           {data.kind === "audio" && data.audio && (
             <AudioPlayer key={data.audio} src={data.audio} onPlayCount={countPlay} />
           )}
+          {data.kind === "audio" && data.noAudio && (
+            <div className="notice">
+              이 기사는 아직 소리 파일이 올라오지 않았어요(글이 먼저 올라오고 소리는 몇 시간 뒤에 붙어요).
+              위에서 다른 기사를 고르거나, 나중에 다시 열어 주세요.
+            </div>
+          )}
 
           {data.kind === "video" && videoId && (
             <VideoPlayer key={videoId} videoId={videoId} title={title} sentences={sentences} onPlayCount={countPlay} apiRef={playerApi}>

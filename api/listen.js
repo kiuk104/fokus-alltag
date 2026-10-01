@@ -29,18 +29,36 @@ async function get(url) {
   return r.text();
 }
 
+// 새 기사는 글이 먼저 올라오고 소리 파일이 몇 시간 늦게 붙는다(2026-09-30 확인: 맨 위 기사만 소리 없음).
+// 기사를 따로 고르지 않았으면 위에서부터 소리가 있는 첫 기사를 고른다. 고른 기사에 소리가 없으면 noAudio 로 알린다.
+const LEICHT_TRIES = 4;
+
 async function leicht(itemPath) {
   const list = parseLeichtHome(await get(FEEDS.leicht + "/"));
-  const path = itemPath && /^\/[a-z0-9-]+-100\.html$/.test(itemPath) ? itemPath : list[0]?.path;
-  if (!path) throw new Error("오늘 기사를 찾지 못했어요");
-  const link = FEEDS.leicht + path;
-  const a = parseLeichtArticle(await get(link));
+  const chosen = itemPath && /^\/[a-z0-9-]+-100\.html$/.test(itemPath) ? itemPath : null;
+  const order = chosen ? [chosen] : list.slice(0, LEICHT_TRIES).map((x) => x.path);
+  if (!order.length) throw new Error("오늘 기사를 찾지 못했어요");
+  let path = order[0];
+  let a = null;
+  for (const p of order) {
+    const art = parseLeichtArticle(await get(FEEDS.leicht + p));
+    if (!a) {
+      a = art;
+      path = p; // 소리 있는 기사가 하나도 없으면 맨 위 기사로 간다
+    }
+    if (art.audio) {
+      a = art;
+      path = p;
+      break;
+    }
+  }
   return {
     kind: "audio",
     title: a.title || list.find((x) => x.path === path)?.title || "",
     date: "",
     audio: a.audio,
-    link,
+    noAudio: !a.audio,
+    link: FEEDS.leicht + path,
     script: a.paras.map((p) => ({ h: "", p })),
     words: a.words,
     list: list.map((x) => ({ item: x.path, title: x.title })),

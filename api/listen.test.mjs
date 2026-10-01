@@ -147,3 +147,29 @@ test("YouTube 채널 페이지 → 영상 목록 (RSS 가 막힐 때)", async ()
   const v = parseYoutubePage(html);
   assert.deepEqual(v.map((x) => [x.id, x.title]), [["abcdefghijk", 'Wie sagt man "Tschüss"? | Easy German 500'], ["B1b2B3b4B5b", "Berlin"]]);
 });
+
+test("Nachrichtenleicht: 맨 위 기사에 소리가 없으면 소리 있는 다음 기사를 고른다", async () => {
+  const noAudio = LEICHT_ART.replace(/data-audio="[^"]+"/, "");
+  const pages = {
+    "https://www.nachrichtenleicht.de/papst": noAudio, // 맨 위: 글만 있음
+    "https://www.nachrichtenleicht.de/wadephul": LEICHT_ART,
+    "https://www.nachrichtenleicht.de/": LEICHT_HOME,
+  };
+  const r = await call("/api/listen?src=leicht", pages);
+  assert.equal(r.json.item, "/wadephul-100.html");
+  assert.match(r.json.audio, /papst_dlf\.mp3/);
+  assert.equal(r.json.noAudio, false);
+  assert.equal(r.json.list.length, 2); // 목록에는 둘 다 남아 있어 직접 고를 수 있다
+
+  // 직접 고른 기사에 소리가 없으면 그대로 두고 noAudio 로 알린다
+  const picked = await call("/api/listen?src=leicht&item=/papst-leo-100.html", pages);
+  assert.equal(picked.json.item, "/papst-leo-100.html");
+  assert.equal(picked.json.audio, "");
+  assert.equal(picked.json.noAudio, true);
+  assert.equal(picked.json.script.length, 3);
+
+  // 소리 있는 기사가 하나도 없으면 맨 위 기사 + noAudio
+  const none = await call("/api/listen?src=leicht", { "https://www.nachrichtenleicht.de/": LEICHT_HOME, "https://www.nachrichtenleicht.de/papst": noAudio, "https://www.nachrichtenleicht.de/wadephul": noAudio });
+  assert.equal(none.json.item, "/papst-leo-100.html");
+  assert.equal(none.json.noAudio, true);
+});
