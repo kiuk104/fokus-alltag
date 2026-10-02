@@ -1,0 +1,30 @@
+/* 지난 기록의 교정 다시 보기 (components/EntryReview.jsx) */
+
+.rv-wrap { margin: 8px 0 4px; padding: 12px; border-radius: 12px; background: var(--card); border: 1.5px solid var(--border); display: flex; flex-direction: column; gap: 12px; }
+.rv-block { display: flex; flex-direction: column; gap: 6px; }
+.rv-mine p { font-family: var(--font-de); font-size: 14.5px; line-height: 1.6; }
+.rv-mine p.intent { font-family: var(--font-ui); color: var(--muted); font-size: 13.5px; }
+.rv-lbl { font-family: var(--font-ui); font-size: 11px; font-weight: 700; color: var(--muted); margin-right: 6px; }
+.rv-text { font-family: var(--font-de); font-size: 14.5px; line-height: 1.6; padding: 8px 10px; border-radius: 10px; background: var(--cream); }
+.rv-text.dashed { border: 1.5px dashed var(--gold); }
+.rv-text.native { border-left: 3px solid var(--blue); }
+.rv-fixes { list-style: none; display: flex; flex-direction: column; gap: 5px; }
+.rv-fixes li { padding: 7px 10px; border-radius: 10px; background: var(--cream); font-family: var(--font-de); font-size: 14px; }
+.rv-fixes li.ok { box-shadow: inset 3px 0 0 var(--green); }
+.rv-fixes s { color: var(--red); opacity: 0.85; }
+.rv-fixes b { color: var(--green); }
+.rv-fixes .muted { font-family: var(--font-ui); margin-top: 2px; }
+.rv-type { margin-left: 6px; font-family: var(--font-ui); font-size: 11px; padding: 0 6px; border-radius: 999px; border: 1px solid var(--border); color: var(--muted); }
+.rv-ok { margin-left: 6px; font-family: var(--font-ui); font-size: 11.5px; font-weight: 700; color: var(--green); }
+.rv-gram { font-size: 13.5px; line-height: 1.5; }
+.rv-explain { display: flex; flex-direction: column; gap: 4px; padding: 8px 10px; border-radius: 10px; background: var(--cream); border-left: 3px solid var(--gold); font-size: 13.5px; }
+.rv-explain .ok { color: var(--green); }
+.rv-keep { list-style: none; display: flex; flex-direction: column; gap: 5px; }
+.rv-keep li { display: flex; flex-direction: column; gap: 1px; padding: 7px 10px; border-radius: 10px; background: var(--cream); }
+.rv-keep b { font-family: var(--font-de); font-size: 14.5px; }
+.rv-keep span { font-size: 12.5px; color: var(--muted); }
+.rv-kw { display: flex; flex-wrap: wrap; gap: 6px; }
+.rv-kw span { padding: 4px 9px; border-radius: 999px; background: var(--cream); border: 1px solid var(--border); font-size: 13px; }
+.pe-badges { display: inline-flex; gap: 5px; margin-left: 6px; vertical-align: middle; }
+.pe-badge { font-size: 10.5px; font-weight: 700; padding: 1px 7px; border-radius: 999px; border: 1px solid var(--border); color: var(--muted); }
+.pe-badge.ok { border-color: var(--green); color: var(--green); }

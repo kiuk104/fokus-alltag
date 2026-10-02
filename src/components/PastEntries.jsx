@@ -1,8 +1,9 @@
 // 지난 기록 — 오늘 이전에 쓴 기록을 날짜별로 다시 본다(읽기 전용). 기록 화면은 오늘 것만 보여 줘서, 어제 쓴 글이 안 보이는 것처럼 느껴졌다.
-// 고치기는 오늘 기록에서만 한다(날짜가 섞이지 않게).
+// 고치기는 오늘 기록에서만 한다(날짜가 섞이지 않게). 기록을 펼치면 그날 받은 교정까지 보인다(EntryReview, 2026-10-02).
 
 import { useEffect, useState } from "react";
-import { loadEntriesRange } from "../lib/entryRepo";
+import { loadEntriesRange, sentIds } from "../lib/entryRepo";
+import EntryReview from "./EntryReview";
 import { addDays } from "../lib/program";
 import { formFor } from "../lib/templates";
 import { weekday } from "../lib/program";
@@ -39,10 +40,16 @@ export default function PastEntries({ userId, today }) {
             {byDay.get(d).map((r) => (
               <details key={r.id} className="pe-item">
                 <summary>
-                  <span className="muted tiny">{hhmm(r.created_at)} · {formFor(r.template, weekday(d)).title}{r.input_mode === "ko" && " · 한국어"}</span>
+                  <span className="muted tiny">
+                    {hhmm(r.created_at)} · {formFor(r.template, weekday(d)).title}{r.input_mode === "ko" && " · 한국어"}
+                    <span className="pe-badges">
+                      {r.correction?.data ? <b className="pe-badge ok">교정</b> : <b className="pe-badge">교정 없음</b>}
+                      {sentIds(r).length > 0 && <b className="pe-badge">DE {sentIds(r).length}문장</b>}
+                    </span>
+                  </span>
                   <span className="pe-first">{(r.raw_text || "").replace(/^\[[^\]]+\]\s*/, "").split("\n")[0]}</span>
                 </summary>
-                <p className="pe-text" lang={r.input_mode === "ko" ? "ko" : "de"}>{r.raw_text}</p>
+                <EntryReview entry={r} />
               </details>
             ))}
           </section>
