@@ -235,6 +235,7 @@ export default function App() {
           row={days.get(today) || {}}
           onPatch={(patch) => patchDay(today, patch)}
           onClose={() => setListenSrc(null)}
+          userId={userId}
         />
       )}
 

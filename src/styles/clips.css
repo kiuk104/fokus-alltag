@@ -1,0 +1,34 @@
+/* 🔖 갈무리 — 목록(screens/Clips.jsx) · 원고 옆 문장 붙이기(components/ClipAttach.jsx) · 플레이어 버튼 */
+
+.clips { z-index: 45; } /* 듣기 화면(.lsn, 40) 위에 */
+.cl-list { list-style: none; display: flex; flex-direction: column; gap: 7px; }
+.cl-row {
+  width: 100%; text-align: left; display: flex; flex-direction: column; gap: 3px;
+  padding: 10px 12px; border-radius: 12px; border: 1.5px solid var(--border); background: var(--card); color: var(--ink);
+}
+.cl-meta { font-size: 12px; color: var(--muted); display: flex; flex-wrap: wrap; gap: 6px; align-items: center; }
+.cl-heard { font-size: 10.5px; font-weight: 700; padding: 0 7px; border-radius: 999px; border: 1px solid var(--border); }
+.cl-title { font-family: var(--font-de); font-size: 14.5px; font-weight: 700; }
+.cl-memo { font-size: 13px; color: var(--muted); }
+.cl-play { display: flex; flex-direction: column; gap: 10px; }
+.cl-cover { display: grid; place-items: center; }
+.cl-try { display: flex; flex-direction: column; gap: 5px; }
+.cl-answer { display: flex; flex-direction: column; gap: 6px; align-items: flex-start; padding: 10px 12px; border-radius: 12px; background: var(--card); border: 1.5px solid var(--border); }
+.cl-note { margin-top: 4px; }
+
+/* 플레이어 안 버튼 */
+.ap-clip.on { background: var(--green); border-color: var(--green); color: #fff; }
+.ap-cliprow { display: flex; align-items: center; gap: 8px; margin: 8px 0; flex-wrap: wrap; }
+.ap-cliponly .ap-foot { justify-content: space-between; }
+
+/* 원고 옆 — 이 편의 갈무리 */
+.ca { margin-top: 14px; display: flex; flex-direction: column; gap: 8px; }
+.ca-item { padding: 9px 10px; border-radius: 10px; background: var(--card); border: 1.5px solid var(--border); display: flex; flex-direction: column; gap: 8px; }
+.ca-head { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.ca-text { flex: 1; min-width: 0; font-family: var(--font-de); font-size: 14px; }
+.ca-head .muted { flex: 1; }
+.ca-pick { display: flex; flex-direction: column; gap: 8px; }
+.ca-sents { display: flex; flex-direction: column; gap: 4px; }
+.lsn-sent.on { border-color: var(--gold); background: color-mix(in srgb, var(--gold) 14%, var(--card)); }
+.btn.danger { border-color: var(--red); color: var(--red); }
+.lsn-head .lsn-tools { display: flex; gap: 8px; align-items: center; }

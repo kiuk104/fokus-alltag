@@ -7,6 +7,9 @@
 //
 // 영상(Easy German)은 자막이 화면에 박혀 있어서, 원고 대신 화면 아래를 가림 띠로 덮었다가 ④에서 걷는다.
 // App.jsx 에서 탭 밖(맨 위)에 렌더한다 — 탭 안에 두면 다른 탭에서 열 때 안 뜬다.
+//
+// 🔖 갈무리(2026-10-03): 플레이어의 🔖 로 지금 문장 구간을 저장 → 원고를 연 뒤에만 문장을 붙인다(ClipAttach)
+// → 머리의 🔖 목록(screens/Clips.jsx)에서 그 구간만 다시 듣는다. 글자는 듣기 전에 보여 주지 않는다.
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { fetchListen } from "../lib/listenApi";
@@ -19,9 +22,14 @@ import CaptionPaste from "../components/CaptionPaste";
 import PastVideos from "../components/PastVideos";
 import { loadCaptions, saveCaptions, clearCaptions } from "../lib/captions";
 import { fetchRemoteCaptions, saveRemoteCaptions, clearRemoteCaptions, latestCaptionVideo, rememberVideo } from "../lib/captionsRepo";
+import ClipAttach from "../components/ClipAttach";
+import Clips from "./Clips";
+import { addClip, loadEpisodeClips } from "../lib/clipsRepo";
+import { scriptSentences } from "../lib/compare";
 import "../styles/listen.css";
+import "../styles/clips.css";
 
-export default function Listen({ source, today, row, onPatch, onClose }) {
+export default function Listen({ source, today, row, onPatch, onClose, userId }) {
   const [item, setItem] = useState(null); // Nachrichtenleicht 기사 · Easy German 영상 고르기
   const [data, setData] = useState(null);
   const [urlMsg, setUrlMsg] = useState("");
@@ -33,6 +41,10 @@ export default function Listen({ source, today, row, onPatch, onClose }) {
   const [cover, setCover] = useState(true);
   const [sentences, setSentences] = useState([]); // 영상의 문장 구간 — 붙여넣은 자막을 영상별로 저장해 둔 것
   const playerApi = useRef(null); // 원고의 문장을 눌러 그 자리부터 듣기
+  const audioApi = useRef(null); // 🔖 갈무리 구간부터 듣기 (소리)
+  const [clipsOpen, setClipsOpen] = useState(false);
+  const [epClips, setEpClips] = useState([]); // 이 편에서 갈무리한 구간
+  const [clipErr, setClipErr] = useState("");
 
   useEffect(() => {
     let alive = true;
@@ -120,6 +132,27 @@ export default function Listen({ source, today, row, onPatch, onClose }) {
     [data, sentences],
   );
   const hasScript = scriptBlocks.length > 0 || (data?.words?.length || 0) > 0;
+
+  // 🔖 이 편의 갈무리 — 소리 주소(또는 영상 id)가 열쇠
+  const media = data?.kind === "video" ? videoId : data?.audio || null;
+  useEffect(() => {
+    setEpClips([]);
+    if (!media || !userId) return;
+    let alive = true;
+    loadEpisodeClips(userId, media).then((r) => alive && setEpClips(r)).catch(() => {});
+    return () => { alive = false; };
+  }, [media, userId]);
+  const onClip = useCallback(
+    async (seg) => {
+      const c = await addClip(userId, {
+        src: source.id, kind: data.kind, media, item: source.id === "leicht" ? curItem : null,
+        title, ep_date: data.date || today, start: seg.start, end: seg.end, dur: seg.dur, text: seg.text || "",
+      });
+      setEpClips((l) => [...l, c].sort((a, b) => a.start_s - b.start_s));
+    },
+    [userId, source.id, data, media, curItem, title, today],
+  );
+  const scriptSents = useMemo(() => (data?.kind === "audio" ? scriptSentences(data.script || []) : []), [data]);
   const step = opened ? 4 : saved ? (plays >= 2 ? 4 : 3) : plays >= 1 ? 2 : 1;
 
   return (
@@ -129,7 +162,10 @@ export default function Listen({ source, today, row, onPatch, onClose }) {
         <div className="lsn-src">
           <b>{source.name}</b> <span className="listen-lv">{source.level}</span>
         </div>
-        <button className="icon-btn" onClick={onClose} aria-label="닫기">✕</button>
+        <div className="lsn-tools">
+          {userId && <button className="chip" onClick={() => setClipsOpen(true)}>🔖 갈무리</button>}
+          <button className="icon-btn" onClick={onClose} aria-label="닫기">✕</button>
+        </div>
       </header>
 
       {!data && !err && <p className="muted pad">최신 편을 가져오는 중…</p>}
@@ -166,7 +202,7 @@ export default function Listen({ source, today, row, onPatch, onClose }) {
           )}
 
           {data.kind === "audio" && data.audio && (
-            <AudioPlayer key={data.audio} src={data.audio} onPlayCount={countPlay} />
+            <AudioPlayer key={data.audio} src={data.audio} onPlayCount={countPlay} onClip={userId ? onClip : undefined} apiRef={audioApi} />
           )}
           {data.kind === "audio" && data.noAudio && (
             <div className="notice">
@@ -176,7 +212,7 @@ export default function Listen({ source, today, row, onPatch, onClose }) {
           )}
 
           {data.kind === "video" && videoId && (
-            <VideoPlayer key={`v-${videoId}`} videoId={videoId} title={title} sentences={sentences} onPlayCount={countPlay} apiRef={playerApi} covered={cover} onToggleCover={reveal ? null : () => setCover((c) => !c)}>
+            <VideoPlayer key={`v-${videoId}`} videoId={videoId} title={title} sentences={sentences} onPlayCount={countPlay} onClip={userId ? onClip : undefined} apiRef={playerApi} covered={cover} onToggleCover={reveal ? null : () => setCover((c) => !c)}>
               {cover && !reveal && (
                 <button className="lsn-cover" onClick={() => setCover(false)}>
                   자막 가림 · 누르면 걷기
@@ -324,6 +360,20 @@ export default function Listen({ source, today, row, onPatch, onClose }) {
                   </div>
                 ))
               )}
+              {/* 🔖 이 편의 갈무리 — 원고를 연 지금에서야 문장을 붙인다 (영상은 자막에서 이미 붙어 있다) */}
+              <ClipAttach
+                userId={userId}
+                clips={epClips}
+                sentences={data.kind === "video" ? sentences.map((x) => x.text) : scriptSents}
+                onChange={setEpClips}
+                onPlay={(c) =>
+                  data.kind === "video"
+                    ? playerApi.current?.goto(Math.max(0, sentences.findIndex((x) => x.start >= c.start_s - 0.1)))
+                    : audioApi.current?.seek(c.start_s)
+                }
+                onError={setClipErr}
+              />
+              {clipErr && <div className="notice error" onClick={() => setClipErr("")}>{clipErr}</div>}
               {data.words?.length > 0 && (
                 <div className="lsn-words">
                   <div className="lsn-words-head">낱말 풀이 (쉬운 독일어)</div>
@@ -344,11 +394,16 @@ export default function Listen({ source, today, row, onPatch, onClose }) {
             </button>
           )}
 
+          {epClips.length > 0 && !reveal && (
+            <p className="muted tiny">🔖 이 편에서 {epClips.length}구간 갈무리 — 원고를 열면 문장을 붙일 수 있어요.</p>
+          )}
+
           <button className="link-btn lsn-site" onClick={() => openApp(data.link || source.url)}>
             사이트에서 보기 <b>↗</b>
           </button>
         </>
       )}
+      {clipsOpen && <Clips userId={userId} onClose={() => setClipsOpen(false)} />}
       </div>
     </div>
   );

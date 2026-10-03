@@ -4,6 +4,9 @@
 // 소리 파일은 한 번 통째로 받아(blob) 재생과 문장 분석에 같이 쓴다 — 두 번 받지 않게.
 // 방송사 세 곳(dradio·DW·ARD)은 다른 출처에서 파일을 읽는 것을 허용한다(2026-09-28 확인).
 // 받기가 막히면 원래 주소로 바로 틀고, 문장 이동 대신 ↺10초만 보여 준다.
+//
+// 🔖 갈무리(onClip): 지금 문장 구간을 저장한다. 문장을 못 나눈 소리면 지금 앞 8초.
+// 갈무리 재생(clip = { start, end }): 그 구간만 되풀이한다 — 🔖 목록(screens/Clips.jsx)에서 쓴다.
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import { fmtTime } from "../lib/listenApi";
@@ -49,7 +52,7 @@ async function loadAndAnalyze(url, onProgress) {
   return { blobUrl, starts };
 }
 
-export default function AudioPlayer({ src, onEnded, onPlayCount }) {
+export default function AudioPlayer({ src, onEnded, onPlayCount, onClip, clip, apiRef }) {
   const ref = useRef(null);
   const [playSrc, setPlaySrc] = useState(null);
   const [starts, setStarts] = useState([0]);
@@ -62,9 +65,11 @@ export default function AudioPlayer({ src, onEnded, onPlayCount }) {
   const [err, setErr] = useState("");
   // 반복할 문장 번호는 따로 들고 있는다. 시각으로 매번 계산하면, 문장 처음으로 막 옮긴 순간
   // "앞 문장 끝"으로 읽혀 앞 문장으로 튀어 버린다.
-  const loopRef = useRef({ on: false, starts: [0], idx: 0 });
+  const loopRef = useRef({ on: false, starts: [0], idx: 0, clip: null });
   loopRef.current.on = loop;
   loopRef.current.starts = starts;
+  loopRef.current.clip = clip || null;
+  const [clipState, setClipState] = useState(""); // "", "busy", "ok", 에러 글
 
   // 받기 + 문장 분석. 실패하면 원래 주소로.
   useEffect(() => {
@@ -96,12 +101,20 @@ export default function AudioPlayer({ src, onEnded, onPlayCount }) {
         setT(a.currentTime);
         // 🔁 이 문장 반복 — 다음 문장 시작에 닿으면 이 문장 처음으로
         const L = loopRef.current;
+        if (L.clip) {
+          // 갈무리 재생 — 이 구간만
+          if (a.currentTime >= L.clip.end - 0.05) a.currentTime = L.clip.start;
+          return;
+        }
         if (L.on && L.starts.length > 1) {
           const end = L.starts[L.idx + 1] ?? a.duration;
           if (a.currentTime >= end - 0.05) a.currentTime = L.starts[L.idx];
         }
       }),
-      on("loadedmetadata", () => setDur(a.duration)),
+      on("loadedmetadata", () => {
+        setDur(a.duration);
+        if (loopRef.current.clip) a.currentTime = loopRef.current.clip.start;
+      }),
       on("play", () => setPlaying(true)),
       on("pause", () => setPlaying(false)),
       on("ended", () => {
@@ -126,6 +139,8 @@ export default function AudioPlayer({ src, onEnded, onPlayCount }) {
     if (a.paused) a.play().catch(() => {});
   }, []);
 
+  if (apiRef) apiRef.current = { seek }; // 원고 옆 🔖 갈무리의 ▶ 로 그 구간부터 듣기
+
   // 10초 뒤로/앞으로 — 문장 경계와 상관없이 시간으로 움직인다
   const jump = (d) => {
     const a = ref.current;
@@ -137,7 +152,9 @@ export default function AudioPlayer({ src, onEnded, onPlayCount }) {
     const a = ref.current;
     if (!a) return;
     if (a.paused) {
-      if (a.ended || a.currentTime >= (a.duration || Infinity) - 0.2) a.currentTime = 0; // 끝난 뒤 다시 누르면 처음부터 = 두 번째 듣기
+      const C = loopRef.current.clip;
+      if (C && (a.currentTime < C.start - 0.3 || a.currentTime >= C.end)) a.currentTime = C.start;
+      else if (a.ended || a.currentTime >= (a.duration || Infinity) - 0.2) a.currentTime = 0; // 끝난 뒤 다시 누르면 처음부터 = 두 번째 듣기
       if (a.currentTime < 0.5) onPlayCount?.();
       a.play().catch(() => setErr("재생이 막혔어요. 한 번 더 눌러 주세요."));
     } else a.pause();
@@ -146,11 +163,59 @@ export default function AudioPlayer({ src, onEnded, onPlayCount }) {
   const hasSentences = starts.length > 1;
   const idx = segIndex(starts, t);
 
+  // 🔖 지금 문장(못 나눈 소리면 앞 8초)을 갈무리
+  const capture = async () => {
+    const a = ref.current;
+    if (!a || !onClip) return;
+    const cur = a.currentTime || 0;
+    const L = loopRef.current;
+    const i = L.on ? L.idx : segIndex(starts, cur);
+    const seg = hasSentences
+      ? { start: starts[i], end: starts[i + 1] ?? a.duration ?? cur, dur: a.duration }
+      : { start: Math.max(0, cur - 8), end: cur + 0.5, dur: a.duration };
+    setClipState("busy");
+    try {
+      await onClip(seg);
+      setClipState("ok");
+      setTimeout(() => setClipState(""), 2000);
+    } catch (e) {
+      setClipState(e.message);
+    }
+  };
+  const clipBtn = onClip && (
+    <button className={`ap-loop ap-clip ${clipState === "ok" ? "on" : ""}`} disabled={clipState === "busy"} onClick={capture} title="지금 문장 구간을 🔖 목록에 저장">
+      {clipState === "ok" ? "✓ 갈무리" : "🔖 갈무리"}
+    </button>
+  );
+
   if (!playSrc) {
     return (
       <div className="ap ap-loading">
         <div className="ap-bar"><i style={{ width: `${Math.round(progress * 100)}%` }} /></div>
         <div className="muted tiny">소리 받는 중 {progress ? `${Math.round(progress * 100)}%` : "…"} · 문장을 나누는 중</div>
+      </div>
+    );
+  }
+
+  if (clip) {
+    // 갈무리 재생 — ▶ 와 속도만. 구간 안에서만 돈다.
+    return (
+      <div className="ap ap-cliponly">
+        <audio ref={ref} src={playSrc} preload="auto" />
+        <div className="ap-row">
+          <button className="ap-play" onClick={toggle} aria-label={playing ? "멈춤" : "재생"}>{playing ? "❚❚" : "▶"}</button>
+        </div>
+        <div className="ap-foot">
+          <span className="ap-sent">🔁 이 구간만 반복 중</span>
+          <div className="ap-speed" role="radiogroup" aria-label="속도">
+            {SPEEDS.map((sp) => (
+              <button key={sp} role="radio" aria-checked={rate === sp} className={rate === sp ? "on" : ""} onClick={() => setRate(sp)}>
+                {sp === 1 ? "1×" : `${sp}`}
+              </button>
+            ))}
+          </div>
+        </div>
+        {err && <div className="ap-err">{err}</div>}
       </div>
     );
   }
@@ -217,9 +282,13 @@ export default function AudioPlayer({ src, onEnded, onPlayCount }) {
               }} aria-pressed={loop}>
               🔁 이 문장 반복
             </button>
+            {clipBtn}
           </>
         ) : (
-          <span className="muted tiny">문장을 나누지 못한 소리예요 — ↺10 · 10↻ 으로</span>
+          <>
+            <span className="muted tiny">문장을 나누지 못한 소리예요 — ↺10 · 10↻ 으로</span>
+            {clipBtn}
+          </>
         )}
         <div className="ap-speed" role="radiogroup" aria-label="속도">
           {SPEEDS.map((sp) => (
@@ -230,6 +299,7 @@ export default function AudioPlayer({ src, onEnded, onPlayCount }) {
         </div>
       </div>
       {err && <div className="ap-err">{err}</div>}
+      {clipState && !["busy", "ok"].includes(clipState) && <div className="ap-err">{clipState}</div>}
     </div>
   );
 }
