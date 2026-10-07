@@ -4,13 +4,15 @@
 // 암기 복습은 Karten, 문장 창고는 Fokus DE — 여기서 다시 만들지 않는다.
 // 가드레일: scripts/check-guardrails.mjs (npm run check)
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { supabase } from "./lib/supabase";
 import { registerServiceWorker } from "./lib/pwa";
 import { applyTheme, getSettings, saveSettings } from "./lib/theme";
 import { loadDeTheme, withDeTheme } from "./lib/deTheme";
 import { loadProgram, saveProgram, loadDays, saveDay, MIGRATION_FILE } from "./lib/programRepo";
 import { addDays, ymd } from "./lib/program";
+import { loadEntriesRange } from "./lib/entryRepo";
+import { collectItems, isDue, pickSession } from "./lib/drill";
 import Auth from "./components/Auth";
 import PwaBar from "./components/PwaBar";
 import TabBar from "./components/TabBar";
@@ -21,6 +23,7 @@ import Progress from "./screens/Progress";
 import Settings from "./screens/Settings";
 import Listen from "./screens/Listen";
 import Recall from "./screens/Recall";
+import Drill from "./screens/Drill";
 import "./styles/app.css";
 import "./styles/pwa.css"; // 마지막 — 안전영역 여백이 app.css 를 덮어야 한다
 
@@ -151,6 +154,25 @@ export default function App() {
     }
   };
 
+  // ✏️ 오답 노트 — 지난 기록 전부(최근 400일)에서 틀린 곳을 모은다. 기록 탭을 떠날 때마다 다시 읽어
+  // 방금 받은 교정도 바로 들어오게 한다. 진도 탭 "자주 틀리는 것"과 오늘 화면 선택 카드가 같이 쓴다.
+  const [entries, setEntries] = useState(null);
+  const [drill, setDrill] = useState(null); // { items, title }
+  const hasProgram = !!program;
+  useEffect(() => {
+    if (!userId || !hasProgram || tab === "entry") return;
+    let alive = true;
+    loadEntriesRange(userId, addDays(today, -400), today)
+      .then((rows) => alive && setEntries(rows))
+      .catch((e) => alive && setError("오답 노트 불러오기 실패: " + e.message));
+    return () => { alive = false; };
+  }, [userId, hasProgram, today, tab]);
+  const drillItems = useMemo(() => (entries ? collectItems(entries) : []), [entries]);
+  const drillDue = useMemo(() => drillItems.filter((it) => isDue(it, today)).length, [drillItems, today]);
+  const openDrill = (type) =>
+    setDrill({ items: pickSession(drillItems, today, { type }), title: type ? `${type} 다시 고치기` : "" });
+  const putEntry = useCallback((row) => setEntries((es) => (es || []).map((e) => (e.id === row.id ? row : e))), []);
+
   if (!ready) return null;
   if (!session) return <Auth />;
 
@@ -218,12 +240,16 @@ export default function App() {
           onGoEntry={() => setTab("entry")}
           onListen={setListenSrc}
           onRecall={() => setRecallOpen(true)}
+          drillDue={drillDue}
+          onDrill={() => openDrill(null)}
         />
       )}
       {tab === "entry" && (
         <Entry key={today} program={program} today={today} userId={userId} onPatch={patchDay} onError={setError} />
       )}
-      {tab === "progress" && <Progress program={program} today={today} days={days} />}
+      {tab === "progress" && (
+        <Progress program={program} today={today} days={days} entries={entries} items={drillItems} onDrill={openDrill} />
+      )}
 
       <TabBar tab={tab} onTab={setTab} />
 
@@ -247,6 +273,19 @@ export default function App() {
           done={!!days.get(today)?.repeat}
           onDone={() => patchDay(today, { repeat: true })}
           onClose={() => setRecallOpen(false)}
+          onError={setError}
+        />
+      )}
+
+      {drill && (
+        <Drill
+          items={drill.items}
+          title={drill.title}
+          userId={userId}
+          today={today}
+          entries={entries || []}
+          onEntry={putEntry}
+          onClose={() => setDrill(null)}
           onError={setError}
         />
       )}

@@ -12,6 +12,7 @@ import { formFor } from "../lib/templates";
 import { DE_URL, KARTEN_URL, openApp } from "../lib/links";
 import { listenFor } from "../lib/listening";
 import ListenStep from "../components/ListenStep";
+import "../styles/drill.css";
 
 const STEPS = [
   { key: "listen", dot: "g", title: "듣기", min: "5분", desc: "자막 없이 한 번 → 자막 켜고 한 번. 무슨 이야기인지만 잡는다." },
@@ -27,7 +28,7 @@ function longDate(s) {
   return `${m}월 ${d}일 (${DOW[weekday(s)]})`;
 }
 
-export default function Today({ program, today, days, onPatch, onGoEntry, onListen, onRecall }) {
+export default function Today({ program, today, days, onPatch, onGoEntry, onListen, onRecall, drillDue = 0, onDrill }) {
   const start = program.start_date;
   const st = programState(start, today);
   const row = days.get(today) || {};
@@ -149,6 +150,17 @@ export default function Today({ program, today, days, onPatch, onGoEntry, onList
         })}
       </ul>
       {dayFull(row) && <p className="all-done">네 칸 모두 끝. 수고했어요.</p>}
+
+      {/* ✏️ 오답 노트 — 루틴 밖의 선택 카드. 하루 20분에 단계를 더하지 않고, 시간 남는 날 하는 보너스 */}
+      {drillDue > 0 && (
+        <div className="drill-card">
+          <div>
+            <b>✏️ 틀린 곳 다시 고치기 · {drillDue}개</b>
+            <p>예전 교정에서 틀린 곳이 다시 나올 때가 됐어요. 선택이에요.</p>
+          </div>
+          <button className="btn small" onClick={onDrill}>하기</button>
+        </div>
+      )}
 
       <section className="links">
         {KARTEN_URL && (
