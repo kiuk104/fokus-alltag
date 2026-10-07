@@ -155,8 +155,8 @@ export default function Today({ program, today, days, onPatch, onGoEntry, onList
       {drillDue > 0 && (
         <div className="drill-card">
           <div>
-            <b>✏️ 틀린 곳 다시 고치기 · {drillDue}개</b>
-            <p>예전 교정에서 틀린 곳이 다시 나올 때가 됐어요. 선택이에요.</p>
+            <b>✏️ 오답 노트 · {drillDue}개</b>
+            <p>예전 교정에서 틀린 곳을 다시 고쳐 쓸 때가 됐어요. 선택이에요.</p>
           </div>
           <button className="btn small" onClick={onDrill}>하기</button>
         </div>

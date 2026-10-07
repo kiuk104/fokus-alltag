@@ -60,7 +60,7 @@ export default function Drill({ items, title, userId, today, entries, onEntry, o
       <div className="lsn-inner">
         <header className="lsn-head">
           <div className="lsn-src">
-            <b>✏️ {title || "틀린 곳 다시 고치기"}</b>{" "}
+            <b>✏️ 오답 노트{title ? ` · ${title}` : ""}</b>{" "}
             {cur && <span className="muted tiny">{at + 1} / {items.length}</span>}
           </div>
           <button className="icon-btn" onClick={onClose} aria-label="닫기">✕</button>
@@ -76,7 +76,7 @@ export default function Drill({ items, title, userId, today, entries, onEntry, o
 
         {finished && (
           <section className="rc-end">
-            <div className="rc-big">다시 고치기 끝</div>
+            <div className="rc-big">오답 노트 끝</div>
             <p>바로 고친 곳 <b>{right} / {items.length}</b></p>
             <ul className="rc-sum">
               {items.map((it) => {

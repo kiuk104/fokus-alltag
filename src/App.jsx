@@ -170,7 +170,7 @@ export default function App() {
   const drillItems = useMemo(() => (entries ? collectItems(entries) : []), [entries]);
   const drillDue = useMemo(() => drillItems.filter((it) => isDue(it, today)).length, [drillItems, today]);
   const openDrill = (type) =>
-    setDrill({ items: pickSession(drillItems, today, { type }), title: type ? `${type} 다시 고치기` : "" });
+    setDrill({ items: pickSession(drillItems, today, { type }), title: type || "" });
   const putEntry = useCallback((row) => setEntries((es) => (es || []).map((e) => (e.id === row.id ? row : e))), []);
 
   if (!ready) return null;
