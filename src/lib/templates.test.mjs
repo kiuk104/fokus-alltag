@@ -1,7 +1,7 @@
 // npm test
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { formFor, composeText, hasContent, wordCount, randomQuestion, WHY_QUESTIONS } from "./templates.js";
+import { formFor, composeText, hasContent, wordCount, randomQuestion, WHY_QUESTIONS, carryText, isSkipped } from "./templates.js";
 import { appendSpoken } from "./speech.js";
 
 test("형식별 칸", () => {
@@ -39,4 +39,15 @@ test("음성 조각 붙이기: 띄어쓰기, 문장 첫 글자 대문자(독일�
   assert.equal(appendSpoken("Heute war ich müde.", "danach bin ich", "de-DE"), "Heute war ich müde. Danach bin ich");
   assert.equal(appendSpoken("오늘은", "피곤했다", "ko-KR"), "오늘은 피곤했다");
   assert.equal(appendSpoken("abc", "   ", "de-DE"), "abc");
+});
+
+test("Level 2·3 건너뛰기 — 건너뛴 칸은 글이 있어도 교정에 안 보내고, 이어 쓰기는 그 앞 칸에서", () => {
+  const form = formFor("expand3", 1);
+  const parts = { l1: "Heute war es kalt.", l2: "Heute war es kalt, weil …", l3: "", skip: { l2: true } };
+  assert.equal(isSkipped(parts, "l2"), true);
+  assert.equal(composeText(form, parts), "[Level 1] Heute war es kalt.");
+  assert.equal(carryText(form, parts, form.fields[2]), "Heute war es kalt.");
+  assert.equal(carryText(form, { ...parts, skip: {} }, form.fields[2]), "Heute war es kalt, weil …"); // 안 건너뛰면 Level 2 에서
+  assert.equal(hasContent(form, { l2: "x", skip: { l2: true } }), false);
+  assert.deepEqual(form.fields.filter((f) => f.optional).map((f) => f.key), ["l2", "l3"]);
 });

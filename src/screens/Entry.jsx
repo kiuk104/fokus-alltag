@@ -9,7 +9,7 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { programState, templateFor, mixFor, weekday } from "../lib/program";
-import { formFor, SWITCHABLE, composeText, hasContent, randomQuestion } from "../lib/templates";
+import { formFor, SWITCHABLE, composeText, hasContent, randomQuestion, carryText, isSkipped } from "../lib/templates";
 import { listen, stopListening, supported, appendSpoken } from "../lib/speech";
 import { loadEntries, saveEntry, deleteEntry, loadDraft, saveDraft, peekLegacyDraft, clearLegacyDraft } from "../lib/entryRepo";
 import Correction from "../components/Correction";
@@ -224,7 +224,12 @@ export default function Entry({ program, today, userId, onPatch, onError }) {
           field={f}
           value={edit.parts[f.key] || ""}
           onChange={(v) => setPart(f.key, v)}
-          carryText={f.carry ? edit.parts[f.carry] || "" : ""}
+          carryText={f.carry ? carryText(form, edit.parts, f) : ""}
+          skipped={isSkipped(edit.parts, f.key)}
+          onSkip={(on) => {
+            if (on && mic.key === f.key) stopListening();
+            setPart("skip", { ...edit.parts.skip, [f.key]: on });
+          }}
           listening={mic.key === f.key}
           interim={mic.key === f.key ? mic.interim : ""}
           onMic={() => toggleMic(f.key)}

@@ -4,10 +4,23 @@
 import { wordCount } from "../lib/templates";
 
 export default function FieldInput({
-  field, value, onChange, carryText, listening, interim, onMic, micOk, korean, extra,
+  field, value, onChange, carryText, listening, interim, onMic, micOk, korean, extra, skipped, onSkip,
 }) {
   const words = field.words ? wordCount(value) : null;
   const [lo, hi] = field.words || [];
+
+  // 건너뛴 칸 — 한 줄로 접는다. 쓰던 글은 parts 에 그대로 있어 [다시 쓰기] 하면 돌아온다
+  if (skipped) {
+    return (
+      <div className="fi fi-skipped">
+        <div className="fi-head">
+          <span className="fi-label">{field.label}</span>
+          <span className="muted tiny">건너뜀 · 교정에 안 보내요</span>
+          <button type="button" className="fi-carry" onClick={() => onSkip(false)}>다시 쓰기</button>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className={`fi ${listening ? "listening" : ""}`}>
@@ -17,6 +30,11 @@ export default function FieldInput({
         {field.carry && carryText && !value.trim() && (
           <button type="button" className="fi-carry" onClick={() => onChange(carryText)}>
             ↓ 앞 칸 가져와 늘리기
+          </button>
+        )}
+        {field.optional && onSkip && (
+          <button type="button" className="fi-carry fi-skip" onClick={() => onSkip(true)}>
+            건너뛰기
           </button>
         )}
       </div>

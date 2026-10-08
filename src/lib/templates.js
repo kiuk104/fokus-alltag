@@ -1,7 +1,9 @@
 // 형식별 입력 칸 — 기록 화면이 이 표를 읽어 칸을 그린다(데이터만 두고 화면 코드는 모른다).
 //
-// 칸 하나 = { key, label, hint, placeholder, rows, carry? }
+// 칸 하나 = { key, label, hint, placeholder, rows, carry?, optional? }
 //   carry: 앞 칸의 글을 가져와 이어 쓰는 버튼을 단다 (3단계 확장 — 문장을 "늘리는" 연습이라서)
+//   optional: [건너뛰기] 를 단다. 건너뛴 칸은 parts.skip[key] = true — 글이 남아 있어도 교정에 안 보낸다
+//             (다시 켜면 쓰던 글이 그대로 돌아온다)
 // 저장은 alltag_entries.parts 에 { 칸 key: 글 } 로 들어간다. 칸 key 를 바꾸면 옛 기록이 안 보이니
 // 이름만 바꾸고 key 는 그대로 둘 것.
 
@@ -9,8 +11,8 @@ import { WEEKDAY_TASKS } from "./program.js";
 
 const EXPAND3 = [
   { key: "l1", label: "Level 1", hint: "있었던 일을 짧게 한 문장.", placeholder: "Heute hatte ich eine schwierige Lieferung.", rows: 2 },
-  { key: "l2", label: "Level 2", hint: "이유·조건을 붙인다 — weil · obwohl · dass · wenn", placeholder: "…, weil es keinen Parkplatz gab.", rows: 2, carry: "l1" },
-  { key: "l3", label: "Level 3", hint: "구체화 — 어디서 · 언제 · 어떤 (형용사·장소·시간)", placeholder: "…, weil es vor dem Gebäude keinen geeigneten Parkplatz gab.", rows: 3, carry: "l2" },
+  { key: "l2", label: "Level 2", hint: "이유·조건을 붙인다 — weil · obwohl · dass · wenn", placeholder: "…, weil es keinen Parkplatz gab.", rows: 2, carry: "l1", optional: true },
+  { key: "l3", label: "Level 3", hint: "구체화 — 어디서 · 언제 · 어떤 (형용사·장소·시간)", placeholder: "…, weil es vor dem Gebäude keinen geeigneten Parkplatz gab.", rows: 3, carry: "l2", optional: true },
 ];
 
 const WHY = [
@@ -98,8 +100,18 @@ export const SWITCHABLE = [
 ];
 
 /** 칸 → 교정에 보낼 글 한 편. 칸 이름을 붙여야 AI가 "Level 2 가 Level 1 을 늘린 것"임을 안다. */
+export const isSkipped = (parts, key) => !!parts?.skip?.[key];
+
+/** 이어 쓸 앞 칸의 글 — 앞 칸을 건너뛰었으면 그 앞 칸으로 (Level 2 를 건너뛰면 Level 3 은 Level 1 을 가져온다) */
+export function carryText(form, parts, field) {
+  let key = field.carry;
+  while (key && isSkipped(parts, key)) key = form.fields.find((f) => f.key === key)?.carry;
+  return key ? parts[key] || "" : "";
+}
+
 export function composeText(form, parts) {
   return form.fields
+    .filter((f) => !isSkipped(parts, f.key))
     .map((f) => [f.label, (parts[f.key] || "").trim()])
     .filter(([, t]) => t)
     .map(([label, t]) => `[${label}] ${t}`)
@@ -107,6 +119,6 @@ export function composeText(form, parts) {
 }
 
 export const hasContent = (form, parts) =>
-  form.fields.some((f) => !f.question && (parts[f.key] || "").trim());
+  form.fields.some((f) => !f.question && !isSkipped(parts, f.key) && (parts[f.key] || "").trim());
 
 export const wordCount = (t) => (t || "").trim().split(/\s+/).filter(Boolean).length;
