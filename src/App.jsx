@@ -157,7 +157,7 @@ export default function App() {
   // ✏️ 오답 노트 — 지난 기록 전부(최근 400일)에서 틀린 곳을 모은다. 기록 탭을 떠날 때마다 다시 읽어
   // 방금 받은 교정도 바로 들어오게 한다. 진도 탭 "자주 틀리는 것"과 오늘 화면 선택 카드가 같이 쓴다.
   const [entries, setEntries] = useState(null);
-  const [drill, setDrill] = useState(null); // { items, title }
+  const [drill, setDrill] = useState(null); // { pool, preset, title }
   const hasProgram = !!program;
   useEffect(() => {
     if (!userId || !hasProgram || tab === "entry") return;
@@ -169,8 +169,13 @@ export default function App() {
   }, [userId, hasProgram, today, tab]);
   const drillItems = useMemo(() => (entries ? collectItems(entries) : []), [entries]);
   const drillDue = useMemo(() => drillItems.filter((it) => isDue(it, today)).length, [drillItems, today]);
+  // 유형을 골라 들어오면 그 유형 문장만 고르기 화면에 — 추천(preset)은 지금까지와 같은 규칙
   const openDrill = (type) =>
-    setDrill({ items: pickSession(drillItems, today, { type }), title: type || "" });
+    setDrill({
+      pool: type ? drillItems.filter((it) => it.type.toLowerCase() === type.trim().toLowerCase()) : drillItems,
+      preset: pickSession(drillItems, today, { type }).map((it) => it.id),
+      title: type || "",
+    });
   const putEntry = useCallback((row) => setEntries((es) => (es || []).map((e) => (e.id === row.id ? row : e))), []);
 
   if (!ready) return null;
@@ -279,7 +284,8 @@ export default function App() {
 
       {drill && (
         <Drill
-          items={drill.items}
+          pool={drill.pool}
+          preset={drill.preset}
           title={drill.title}
           userId={userId}
           today={today}

@@ -292,6 +292,7 @@ AI 호출은 **교정 1회**(전부 받아 두고 화면에서만 나눠 연다 
 - CP2 ✅ 2026-09-28 — `src/lib/ai.js`(DE anthropic 함수 · ai_usage_log · 상한), `correct.js`(요청문·해석), `deWrite.js`+`tags.js`(user_sentences insert · 기존 태그 맞춤), `components/Correction.jsx`(5단계). 문법 태그는 독일어(`GRAMMAR[].tag`). DE `aiUsage.js` MODEL_PRICING 에 claude-sonnet-5 추가
 - CP3 ✅ 2026-09-28 — 🔴 `screens/Recall.jsx`(한국어 → 말하기 → 단어 단위 채점(`lib/recall.js`, AI 없음) · 첫 글자 힌트 · 막힌 것만 한 번 더 · 결과는 `correction.recall`), 되살리기 `components/Revive.jsx`(14·7·3·1일 전 문장 → 오늘 상황으로 바꿔 한 문장 · `parts.revive`), 원어민 발음 `lib/audio.js`+`api/tts.js`(DE 와 같은 파일 · `card_meta` upsert 만 · 실패하면 기기 목소리), 새 단어 → `custom_words`(교정 응답 `words` · DE 기본 단어장/내 단어에 있으면 ✓ · 단어장 Alltag). 가드레일에 `generated_words`(읽기)·`card_meta`(upsert) 추가. 연속 일수·10분 모드는 CP1 에서 이미 있음
 - CP4 (1) ✅ 2026-10-07 — ✏️ 오답 노트(0-5절): `lib/drill.js`(틀린 곳 모으기 · 같은 문장의 다른 오류는 미리 고쳐 둠 · 간격 · 유형 교차 · 졸업 · 채점은 교정 1단계 `selfFixed` · AI 없음), `screens/Drill.jsx`(고쳐 쓰기 → 정답·이유 → 오늘 상황 한 문장(선택, `drill[n].made`)), 진도 탭 **자주 틀리는 것 Top 5**(유형별 횟수·졸업 막대 · [다시 고치기] · DE ↗ `?grammar=` · 섞어서 다시 고치기), 오늘 화면 선택 카드(때가 된 것이 있을 때만). 기록은 App 이 최근 400일을 읽어 둔다(기록 탭을 떠날 때마다 새로). 철자·뜻(Rechtschreibung·Bedeutung)은 세기만 하고 연습은 안 낸다. DE 쪽: Dojo 📐 문법(Basiswortschatz 로드맵 2026-10-07)
+  - 2026-10-09 문장 고르기(`components/DrillPicker.jsx`): 오답 노트를 열면 먼저 고르기 화면 — 추천(때가 된 것, 유형 섞어 5개)을 미리 체크해 두고 넣고 뺀다. 묶음은 오늘 할 때 · 아직 때가 아님(미리 해도 됨) · 졸업(펼쳐서 다시 고를 수 있음, 틀리면 졸업이 풀림). 유형 칩으로 거르기
 
 ---
 

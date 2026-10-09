@@ -11,20 +11,24 @@ import { useEffect, useState } from "react";
 import { patchEntry } from "../lib/entryRepo";
 import { judge, nextState, withDrill, GRADUATE } from "../lib/drill";
 import { useMic } from "../lib/useMic";
+import { speakText, stopSpeaking } from "../lib/audio";
 import { deHasGrammar, deGrammarUrl, openApp } from "../lib/links";
+import DrillPicker from "../components/DrillPicker";
 import "../styles/listen.css";
 import "../styles/recall.css";
 import "../styles/correct.css";
 import "../styles/drill.css";
 
-export default function Drill({ items, title, userId, today, entries, onEntry, onClose, onError }) {
+// pool: 고를 수 있는 문장 전부 · preset: 추천으로 미리 골라 둘 id — 먼저 고르기 화면, [시작] 하면 문제
+export default function Drill({ pool, preset, title, userId, today, entries, onEntry, onClose, onError }) {
+  const [items, setItems] = useState(null); // 고른 문장 (null = 아직 고르는 중)
   const [at, setAt] = useState(0);
   const [results, setResults] = useState([]); // [{ id, correct, state }]
 
   useEffect(() => {
     const k = (e) => e.key === "Escape" && onClose();
     window.addEventListener("keydown", k);
-    return () => window.removeEventListener("keydown", k);
+    return () => { window.removeEventListener("keydown", k); stopSpeaking(); };
   }, [onClose]);
 
   // 답을 내면 바로 저장 — 중간에 닫아도 한 만큼은 남는다
@@ -50,10 +54,11 @@ export default function Drill({ items, title, userId, today, entries, onEntry, o
     setAt((n) => n + 1);
   };
 
-  const cur = items[at];
-  const finished = items.length > 0 && at >= items.length;
+  const list = items || [];
+  const cur = list[at];
+  const finished = list.length > 0 && at >= list.length;
   const right = results.filter((r) => r.correct).length;
-  const types = [...new Set(items.map((it) => it.type))];
+  const types = [...new Set(list.map((it) => it.type))];
 
   return (
     <div className="lsn rc dr" role="dialog" aria-label="오답 노트">
@@ -61,32 +66,28 @@ export default function Drill({ items, title, userId, today, entries, onEntry, o
         <header className="lsn-head">
           <div className="lsn-src">
             <b>✏️ 오답 노트{title ? ` · ${title}` : ""}</b>{" "}
-            {cur && <span className="muted tiny">{at + 1} / {items.length}</span>}
+            {cur && <span className="muted tiny">{at + 1} / {list.length}</span>}
           </div>
           <button className="icon-btn" onClick={onClose} aria-label="닫기">✕</button>
         </header>
 
-        {items.length === 0 && (
-          <div className="notice soft">
-            지금 다시 고칠 곳이 없어요. 교정에서 틀린 곳은 <b>다음 날부터</b> 여기 나와요.
-          </div>
-        )}
+        {!items && <DrillPicker pool={pool} preset={preset} today={today} onStart={setItems} />}
 
         {cur && <DrillCard key={cur.id} item={cur} onAnswer={answer} onNext={addMade} />}
 
         {finished && (
           <section className="rc-end">
             <div className="rc-big">오답 노트 끝</div>
-            <p>바로 고친 곳 <b>{right} / {items.length}</b></p>
+            <p>바로 고친 곳 <b>{right} / {list.length}</b></p>
             <ul className="rc-sum">
-              {items.map((it) => {
+              {list.map((it) => {
                 const r = results.find((x) => x.id === it.id);
                 const v = !r ? "" : r.correct ? "ok" : "miss";
                 return (
                   <li key={it.id} className={v}>
                     <b lang="de"><s>{it.fix.from}</s> → {it.fix.to}</b>
                     <span className="muted tiny">
-                      {it.type} · {!r ? "건너뜀" : r.state.done ? "🎓 졸업 — 이제 안 나와요" : r.correct ? `맞힘 · ${GRADUATE - r.state.streak}번 더 맞히면 졸업` : "내일 다시"}
+                      {it.type} · {!r ? "건너뜀" : r.state.done ? "🎓 졸업 — 이제 저절로는 안 나와요" : r.correct ? `맞힘 · ${GRADUATE - r.state.streak}번 더 맞히면 졸업` : "내일 다시"}
                     </span>
                   </li>
                 );
@@ -119,7 +120,9 @@ function DrillCard({ item, onAnswer, onNext }) {
   const [mine, setMine] = useState(item.before);
   const [shown, setShown] = useState(null); // { correct, gaveUp, state }
   const [made, setMade] = useState("");
+  const [voice, setVoice] = useState("");
   const mic = useMic(made, setMade);
+  const play = async (rate) => setVoice(await speakText(item.after, { rate }));
   const { fix } = item;
 
   const check = (gaveUp) => {
@@ -169,6 +172,11 @@ function DrillCard({ item, onAnswer, onNext }) {
       <p className="dr-fix" lang="de"><s>{fix.from}</s> → <b>{fix.to}</b></p>
       {fix.why && <p className="dr-why">{fix.why}</p>}
       <p className="rc-answer" lang="de">{item.after}</p>
+      <div className="rc-play">
+        <button className="btn" onClick={() => play(1)}>🔊 발음 듣기</button>
+        <button className="btn" onClick={() => play(0.75)}>🐢 천천히</button>
+        {voice === "device" && <span className="muted tiny">기기 목소리 (원어민 발음을 만들지 못했어요)</span>}
+      </div>
       {!shown.gaveUp && !shown.correct && mine.trim() && (
         <p className="rc-said" lang="de"><span className="muted tiny">내가 쓴 것 </span>{mine}</p>
       )}
@@ -191,7 +199,7 @@ function DrillCard({ item, onAnswer, onNext }) {
       </div>
 
       <div className="cr-actions">
-        <button className="btn primary" onClick={() => { mic.stop(); onNext(item, shown.state, made.trim()); }}>
+        <button className="btn primary" onClick={() => { mic.stop(); stopSpeaking(); onNext(item, shown.state, made.trim()); }}>
           {made.trim() ? "저장하고 다음" : "다음"}
         </button>
       </div>

@@ -162,3 +162,16 @@ export function typeStats(entries, items = collectItems(entries)) {
   }
   return [...m.values()].sort((a, b) => b.count - a.count || a.type.localeCompare(b.type));
 }
+
+/**
+ * 문장 고르기 화면의 세 묶음 — 오늘 할 때 / 아직 때가 아님 / 졸업.
+ * 졸업한 것도 골라서 다시 할 수 있다(틀리면 졸업이 풀리고 다시 간격에 들어간다).
+ */
+export function pickerGroups(pool, today) {
+  const order = (a, b) => (nextDay(a) < nextDay(b) ? -1 : nextDay(a) > nextDay(b) ? 1 : a.day < b.day ? -1 : a.day > b.day ? 1 : a.n - b.n);
+  return {
+    due: pool.filter((it) => isDue(it, today)).sort(order),
+    later: pool.filter((it) => !isDone(it) && !isDue(it, today)).sort(order),
+    done: pool.filter(isDone).sort((a, b) => (a.day < b.day ? 1 : a.day > b.day ? -1 : a.n - b.n)),
+  };
+}

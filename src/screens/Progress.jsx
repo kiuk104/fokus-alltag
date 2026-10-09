@@ -113,7 +113,7 @@ function Mistakes({ entries, items, today, onDrill }) {
                   </div>
                 </div>
                 <div className="mk-acts">
-                  {r.drillable && r.open > 0 && (
+                  {r.drillable && r.open + r.done > 0 && (
                     <button className="btn small" onClick={() => onDrill(r.type)}>다시 고치기</button>
                   )}
                   {deHasGrammar(r.type) && (

@@ -1,7 +1,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import {
-  germanSentences, sentenceFor, collectItems, pickSession, nextState, withDrill, typeStats, judge, drillable, isDue,
+  germanSentences, sentenceFor, collectItems, pickSession, nextState, withDrill, typeStats, judge, drillable, isDue, pickerGroups,
 } from "./drill.js";
 
 const fix = (from, to, type) => ({ from, to, type, hint: "", why: "" });
@@ -86,4 +86,10 @@ test("자주 틀리는 것 — 유형별 횟수(철자 포함) + 졸업 수", ()
   ];
   const st = typeStats(es);
   assert.deepEqual(st.map((r) => [r.key, r.count, r.done, r.open, r.drillable]), [["kasus", 2, 1, 1, true], ["rechtschreibung", 1, 0, 0, false]]);
+});
+
+test("문장 고르기 묶음 — 오늘 할 때 · 아직 · 졸업", () => {
+  const mk = (id, day, state = null) => ({ id, key: "kasus", type: "Kasus", day, n: 0, state });
+  const g = pickerGroups([mk("a", "2026-10-01"), mk("b", "2026-10-08"), mk("c", "2026-10-02", { done: true }), mk("d", "2026-10-03", { next: "2026-10-12", streak: 1 })], "2026-10-08");
+  assert.deepEqual([g.due.map((x) => x.id), g.later.map((x) => x.id), g.done.map((x) => x.id)], [["a"], ["b", "d"], ["c"]]);
 });

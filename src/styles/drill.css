@@ -35,3 +35,20 @@
 .drill-card div { flex: 1; min-width: 0; }
 .drill-card b { font-size: 14px; }
 .drill-card p { font-size: 12.5px; color: var(--muted); margin-top: 2px; }
+
+/* 문장 고르기 (components/DrillPicker.jsx) */
+.dp { display: flex; flex-direction: column; gap: 10px; padding-bottom: 72px; }
+.dp-sep { width: 1px; align-self: stretch; background: var(--border); margin: 0 2px; }
+.dp-sec-head { display: flex; align-items: baseline; gap: 6px; margin: 6px 0; font-size: 14px; }
+.dp-list { list-style: none; display: flex; flex-direction: column; gap: 6px; }
+.dp-list label {
+  display: flex; gap: 10px; align-items: flex-start; padding: 10px 12px; cursor: pointer;
+  border-radius: 10px; border: 1.5px solid var(--border); background: var(--card);
+}
+.dp-list label.on { border-color: var(--gold); }
+.dp-list input { margin-top: 4px; width: 18px; height: 18px; accent-color: var(--gold); flex: none; }
+.dp-body { display: flex; flex-direction: column; gap: 3px; min-width: 0; }
+.dp-sent { font-family: var(--font-de); font-size: 15px; line-height: 1.5; }
+.dp-sent u { text-decoration: underline wavy var(--red); text-underline-offset: 4px; }
+.dp-more { margin: 4px 0 0; align-self: flex-start; }
+.dp-foot { position: sticky; bottom: 0; padding: 10px 0 calc(6px + env(safe-area-inset-bottom)); background: linear-gradient(transparent, var(--cream) 30%); }
