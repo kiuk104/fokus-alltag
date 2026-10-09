@@ -45,7 +45,8 @@ async function metaRow(userId, id) {
   return data?.meta || {};
 }
 
-async function makeMp3(userId, token, id, text) {
+/** /api/tts → mp3 Blob (+ 목소리 이름) */
+async function ttsBlob(token, text) {
   const res = await fetch("/api/tts", {
     method: "POST",
     headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
@@ -54,11 +55,15 @@ async function makeMp3(userId, token, id, text) {
   if (!(res.headers.get("content-type") || "").includes("application/json")) throw new Error("발음 창구(/api/tts)가 없어요");
   const json = await res.json();
   if (!res.ok || !json.audio) throw new Error(json?.error || `발음 만들기 실패 (${res.status})`);
-  const blob = toBlob(json.audio, json.mime);
+  return { blob: toBlob(json.audio, json.mime), voice: json.voice || "" };
+}
+
+async function makeMp3(userId, token, id, text) {
+  const { blob, voice } = await ttsBlob(token, text);
   const path = `${userId}/sentence-${id}-${Date.now()}.mp3`;
   const up = await supabase.storage.from(BUCKET).upload(path, blob, { contentType: blob.type, cacheControl: "31536000", upsert: false });
   if (up.error) throw new Error(up.error.message);
-  return { url: supabase.storage.from(BUCKET).getPublicUrl(path).data.publicUrl, text, voice: json.voice || "" };
+  return { url: supabase.storage.from(BUCKET).getPublicUrl(path).data.publicUrl, text, voice };
 }
 
 const cache = new Map(); // 문장 id → mp3 주소 (페이지가 사는 동안)
@@ -112,8 +117,48 @@ export async function speak(id, de, { rate = 1 } = {}) {
       /* 아래 기기 목소리로 */
     }
   }
+  return deviceVoice(forSpeech(de), rate);
+}
+
+const textCache = new Map(); // 글 → blob 주소 (페이지가 사는 동안)
+
+/**
+ * DE 문장 id 가 없는 글(오답 노트의 고친 문장 등) 읽기. 원어민 mp3 를 만들되 **저장하지 않는다** —
+ * card_meta 는 DE 문장 id 에만 붙는 칸이라 여기 넣을 자리가 없다. 같은 글은 페이지가 사는 동안 한 번만 만든다.
+ * 실패하면 기기 목소리. 반환 "native" | "device" | "none"
+ */
+export async function speakText(de, { rate = 1 } = {}) {
+  stopSpeaking();
+  const text = forSpeech(de);
+  if (!text) return "none";
+  let url = textCache.get(text);
+  if (url === undefined) {
+    try {
+      const s = await session();
+      const { blob } = await ttsBlob(s.access_token, text);
+      url = URL.createObjectURL(blob);
+    } catch (e) {
+      console.warn("[audio] 원어민 발음 없음 — 기기 목소리로:", e?.message || e);
+      url = "";
+    }
+    textCache.set(text, url);
+  }
+  if (url) {
+    player = new Audio(url);
+    player.playbackRate = rate;
+    try {
+      await player.play();
+      return "native";
+    } catch {
+      /* 아래 기기 목소리로 */
+    }
+  }
+  return deviceVoice(text, rate);
+}
+
+function deviceVoice(text, rate) {
   if (typeof speechSynthesis === "undefined") return "none";
-  const u = new SpeechSynthesisUtterance(forSpeech(de));
+  const u = new SpeechSynthesisUtterance(text);
   u.lang = "de-DE";
   u.rate = rate * 0.95;
   const v = speechSynthesis.getVoices().find((x) => x.lang?.startsWith("de"));
