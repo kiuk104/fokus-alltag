@@ -10,7 +10,7 @@
 // 같은 문법을 내 DE 문장으로 더 연습하는 건 Fokus DE Dojo 📐 문법 몫 — 여기서는 링크만 건다(links.js deGrammarUrl).
 
 import { addDays } from "./program.js";
-import { selfFixed } from "./correct.js";
+import { selfFixed, normText } from "./correct.js";
 
 /** 문법 연습으로 내지 않는 유형 — 철자·의도 문제는 다시 고쳐 쓰기로 배울 게 적다 */
 const SKIP = new Set(["rechtschreibung", "bedeutung", "zeichensetzung", "großschreibung", "grossschreibung", "groß-/kleinschreibung"]);
@@ -117,7 +117,9 @@ export function pickSession(items, today, { type = null, size = 5 } = {}) {
 }
 
 /** 내가 고쳐 쓴 문장 채점 — 교정 1단계와 같은 기준(correct.js selfFixed) */
-export const judge = (item, mine) => selfFixed(mine, item.fix);
+// + 고친 문장 전체가 정답 문장과 같으면 무조건 정답 (끝 문장부호는 봐준다)
+const bare = (s) => normText(s).replace(/[\s.,;:!?]+$/, "");
+export const judge = (item, mine) => selfFixed(mine, item.fix) || (!!bare(mine) && bare(mine) === bare(item.after));
 
 /** 결과 → 새 상태 */
 export function nextState(prev, correct, today) {

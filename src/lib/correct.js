@@ -215,10 +215,24 @@ export function markFixes(text, fixes) {
 }
 
 /** 내가 고친 글에 정답(to)이 들어가고 틀린 부분(from)이 사라졌으면 "스스로 고침" */
+// 채점용 글자 맞추기 — 화면에선 같아 보여도 글자가 다른 경우를 없앤다 (2026-10-10, 정답을 썼는데 오답 처리됨):
+//   폰 키보드가 넣는 줄바꿈 없는 공백(U+00A0 등)·공백 두 칸 → 한 칸 / 폭 없는 문자(U+200B 등) → 지움
+//   ä 를 a+점 두 개로 따로 넣은 경우 → 한 글자(NFC) / 둥근 따옴표 → 곧은 따옴표 / 대소문자 무시
+export function normText(s) {
+  return String(s || "")
+    .normalize("NFC")
+    .replace(/[\u200B-\u200D\u2060\uFEFF\u00AD]/g, "")
+    .replace(/[\u2018\u2019\u201A\u201B\u00B4`]/g, "'")
+    .replace(/[\u201C\u201D\u201E\u201F\u00AB\u00BB]/g, '"')
+    .replace(/\s+/g, " ")
+    .toLowerCase()
+    .trim();
+}
+
 export function selfFixed(mine, fix) {
-  const m = String(mine || "").toLowerCase();
-  const to = fix.to.toLowerCase();
-  const from = fix.from.toLowerCase();
+  const m = normText(mine);
+  const to = normText(fix.to);
+  const from = normText(fix.from);
   if (!m) return false;
   return m.includes(to) && (to.includes(from) || !m.includes(from));
 }

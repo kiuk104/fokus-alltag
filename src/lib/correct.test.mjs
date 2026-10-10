@@ -1,7 +1,7 @@
 // npm test
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { extractJson, normalizeCorrection, markFixes, selfFixed, correctionPrompt, normalizeExplain, CATEGORIES } from "./correct.js";
+import { extractJson, normalizeCorrection, markFixes, selfFixed, correctionPrompt, normalizeExplain, CATEGORIES, normText } from "./correct.js";
 
 const TEXT = "[Level 1] Heute hatte ich ein schwierige Lieferung.\n[Level 2] Heute hatte ich eine schwierige Lieferung, weil es gab keinen Parkplatz.";
 
@@ -118,4 +118,15 @@ test("한국어 의도 줄 — 표시만 하고, 요청문이 의도 규칙을 �
   assert.match(p, /🇰🇷 줄은 교정하지 않는다/);
   assert.doesNotMatch(correctionPrompt({ text: "Heute war gut.", month: 1, tplTitle: "x" }), /🇰🇷 줄은 교정하지 않는다/);
   assert.equal(markIntent("Nur Deutsch.").has, false);
+});
+
+test("채점 — 폰 키보드의 보이지 않는 공백·분리된 움라우트·둥근 따옴표에 속지 않는다", () => {
+  const fix = { from: "Leider ich bin", to: "Leider bin ich" };
+  assert.equal(selfFixed("Leider\u00A0bin ich heute spät losgefahren.", fix), true); // 줄바꿈 없는 공백
+  assert.equal(selfFixed("Leider bin  ich heute.", fix), true); // 두 칸
+  assert.equal(selfFixed("Leider bin\u200B ich heute.", fix), true); // 폭 없는 문자
+  assert.equal(selfFixed("Leider ich bin heute.", fix), false);
+  const uml = { from: "fur", to: "für" };
+  assert.equal(selfFixed("Danke fu\u0308r alles.", uml), true); // u + ◌̈ 따로
+  assert.equal(normText("„Hallo“ ’s"), '"hallo" \'s');
 });

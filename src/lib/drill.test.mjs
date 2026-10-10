@@ -93,3 +93,11 @@ test("문장 고르기 묶음 — 오늘 할 때 · 아직 · 졸업", () => {
   const g = pickerGroups([mk("a", "2026-10-01"), mk("b", "2026-10-08"), mk("c", "2026-10-02", { done: true }), mk("d", "2026-10-03", { next: "2026-10-12", streak: 1 })], "2026-10-08");
   assert.deepEqual([g.due.map((x) => x.id), g.later.map((x) => x.id), g.done.map((x) => x.id)], [["a"], ["b", "d"], ["c"]]);
 });
+
+test("고친 문장 전체가 정답과 같으면 정답 — 보이지 않는 공백·끝 문장부호 무시", () => {
+  const it = { fix: { from: "Leider ich bin", to: "Leider bin ich" }, after: "Leider bin ich heute später losgefahren." };
+  assert.equal(judge(it, "Leider\u00A0bin\u00A0ich heute später losgefahren."), true);
+  assert.equal(judge(it, "leider bin ich heute später losgefahren"), true);
+  assert.equal(judge(it, "Leider ich bin heute später losgefahren."), false);
+  assert.equal(judge(it, ""), false);
+});
