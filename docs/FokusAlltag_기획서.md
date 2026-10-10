@@ -109,6 +109,88 @@ DE `Basiswortschatz_로드맵.md` 의 착수 전 항목 중 아래를 Alltag 가
 - 문법 연습에서 빼는 유형: `Rechtschreibung`·`Bedeutung` (철자·의도 문제). `Verbform` 은 DE 2단계(변화표 캐시)에서 지원 예정 — 그 전까지는 링크를 숨긴다
 - DE 비대화 방지 규칙(DE 로드맵 2026-10-07): 버튼·탭·설정을 늘리지 않고 기존 자리에 흡수(격변화 → 문법), 진입점은 기존 화면 + 링크뿐, 로직은 새 파일
 
+### 0-6. 프로필 — 같은 앱을 다른 학습 기준으로 (2026-10-10)
+
+앱의 틀(🟢듣기 → 🟡쓰기·말하기 → 🔵단계별 공개 교정 → 🔴꺼내기)과 0-2절 학습 원리는 그대로 두고,
+**내용**(형식 · 교정 기준 · 문법 목록 · 듣기 출처 · 화면 언어)만 프로필로 바꾼다.
+기능을 새로 만드는 것이 아니라, 코드에 고정돼 있던 "REWE · B1→B2 · 한국어"를 설정으로 빼내는 일이다.
+
+| | `b2-arbeit` (기본 · 지금 그대로) | `gym10` (김나지움 10학년 Deutsch 글쓰기) |
+|---|---|---|
+| 대상 | 독일어를 배우는 성인, 직장 생활 | 독일어가 학교 언어인 학생 |
+| 한 줄 정의 | 내 하루를 독일어로 | 오늘 수업·읽은 글을 단락 하나로 |
+| 하루 단위 | 오늘 있었던 일 | **단락 하나** (글 한 편이 아님 — 20분 예산 유지) |
+| 형식 | 3단계 확장 → "왜?" → 문제 해결 → 요일 루틴 (개월 자동) | Inhaltsangabe · Erörterung 단락 · Stellungnahme · Textanalyse (**직접 고름**) |
+| 교정 3단 | B1 → B2 → 원어민 | Korrektur → Schriftsprache → Gehobener Ausdruck |
+| 프롬프트 맥락 | REWE 배송 업무, 현재 개월 | 10학년 Deutsch 과제, 채점 기준 Inhalt · Aufbau · Sprache |
+| 외울 3문장 | 오늘 상황 문장 (de + ko) | **표현 틀** (de + 독일어 핵심어) — 다른 글에도 쓸 수 있는 문장 |
+| 꺼내기 단서 | 한국어 뜻 | 독일어 핵심어 (설정에서 한국어로 바꿀 수 있음) |
+| 한국어 입력 · 의도 먼저 쓰기 | 켬 | 끔 |
+| 교정 설명 언어 (`hint` · `why`) | 한국어 | 독일어 |
+| 화면 언어 | 한국어 | 독일어 (설정에서 바꿀 수 있음) |
+| 듣기 출처 | Nachrichtenleicht · DW 천천히 뉴스 · Easy German · tagesschau 100초 | tagesschau · Deutschlandfunk 급 (원고 없는 출처 → 듣기 2단계 필요 여부 확인) |
+| 듣기 뒤 한 줄 | 들은 내용 한 줄 | 3~5문장 Inhaltsangabe 로 이어 쓸 수 있음 |
+| DE · Karten 으로 보내기 | 켬 (문장 · 단어 · 발음 파일) | **끔** — 아들 계정은 DE · Karten 을 쓰지 않는다 |
+
+#### gym10 형식과 입력 칸
+
+| 형식 | 입력 칸 |
+|---|---|
+| Inhaltsangabe | Einleitungssatz (Titel · Autor · Thema) → Kernaussagen 3~5문장 (Präsens, 간접화법) |
+| Erörterung 단락 | These → Begründung → Beispiel → Rückbezug |
+| Stellungnahme | Meinung → Argument 1 → Argument 2 → Fazit |
+| Textanalyse | Zitat / Textstelle → Deutung → Wirkung |
+
+- 단원 순서는 주·학교마다 다르다 → 개월 자동 로드맵을 쓰지 않고 **지금 학교에서 하는 형식을 고른다**
+- 교차 규칙은 유지: 주 2회 지난 형식을 섞는다 ("섞는 날" 표시 그대로)
+- 뒤 칸 [건너뛰기]는 3단계 확장과 같은 방식(`parts.skip`)
+
+#### gym10 오류 유형과 문법 목록
+- 오류 유형 추가: `Zeichensetzung`(쉼표) · `Konjunktiv`(간접화법) · `Tempus` · `Ausdruck` · `Zitieren`
+- 오답 노트(0-5절)는 그대로 동작한다. `Ausdruck` 은 정답이 하나가 아니라서 세기만 하고 연습은 내지 않는다(`Bedeutung` 과 같은 취급)
+- DE Dojo 링크(`?grammar=`): DE `normalizeFocus` 가 모르는 유형은 링크를 숨긴다 — DE 는 고치지 않는다
+- 진도 탭 "문법 8개" 자리 → 글쓰기 도구 8개: Konjunktiv I · Nominalstil · Passiv · Relativsatz · Konnektoren(인과) · Konnektoren(양보·대조) · Zitat 넣기 · Präsens 유지
+- 태그는 DE 로 보낼 때만 쓰므로 gym10 에는 없다. 문법 · 형식은 `correction.keep[].grammar` 와 `alltag_entries.template` 으로 센다
+- "나만의 100문장" 카테고리 → Einleitung · These · Begründung · Beispiel · Überleitung · Deutung · Wirkung · Fazit
+
+#### 화면 언어
+- 문구를 `src/strings/ko/*.js` · `src/strings/de/*.js` 로 모으고 `t('키')` 로 읽는다. 화면별로 파일을 나눈다(800줄 상한)
+- 키가 없으면 한국어로 보여 준다 → **한 번에 다 옮기지 않아도 된다**
+- 순서: 오늘 → 기록 → 교정 → 꺼내기 → 오답 노트 → 진도 → 설정
+- 화면 언어와 프로필은 따로 저장한다(`settings.uiLang`). gym10 을 고르면 기본값만 독일어가 된다
+
+#### 구현
+- 저장: `alltag_program.settings` 에 `profile` · `uiLang` · `cueLang` — jsonb 라 마이그레이션 없음. 값이 없으면 `b2-arbeit` · `ko`
+- `src/profiles/b2-arbeit.js` · `gym10.js` · `index.js` — 형식 · 교차 규칙 · 문법 목록 · 카테고리 · 프롬프트 맥락 · 듣기 출처 · DE 로 보내기 여부
+- 프로필을 읽게 바꿀 곳: `correct.js`(요청문) · 템플릿 · `listening.js` · 진도 탭 · `Recall.jsx`(단서) · `Correction.jsx`(저장 버튼)
+- 교정 응답: `keep[].ko` 옆에 `keep[].cue`(독일어 핵심어) 추가. `b2` · `native` 칸 이름은 그대로 두고 화면 라벨만 프로필에서 가져온다(저장된 기록과 호환)
+- gym10 은 DE 로 보내지 않는다: `user_sentences` · `custom_words` 저장, `card_meta` 발음 파일, Karten · DE 링크, 미션 단어(DE 읽기)를 모두 끈다. 교정 5단계의 [Fokus DE에 저장]은 [표현 틀 저장]이 되고 `correction.keep` 에만 남는다
+- 코드 확인(2026-10-10): 꺼내기 · 되살리기는 이미 Alltag 기록에서 읽는다(`recall.js keptSentences`). 다만 **DE 로 보낸 id(`sentIds`)가 있는 문장만** 고른다 → gym10 은 [표현 틀 저장]을 누른 기록(`progress.saved`)이면 id 없이도 고르게 한 곳만 고친다. "100문장"은 아직 자리만 있다(CP4) — 만들 때 같은 함수에서 센다
+- 발음은 기기 목소리(지금도 있는 대체 경로)를 쓴다
+
+#### 계정과 비용
+- 아들은 **별도 로그인** → `user_id` 로 기록이 나뉜다. DE · Karten 은 쓰지 않는다
+- 상한 판정은 **이미 사용자별**이다(`ai.js usageNow` — 내 `user_id` + kind `alltag-`, 하루 20회도 같다). 고칠 것 없음
+- 상한: 1인당 월 $5 (`VITE_ALLTAG_MONTHLY_CAP_USD`), 80% 에서 절약 모드. Claude Console 한도는 $15 로 올린다
+- gym10 1회 추정: 단락 100~150단어 + 독일어 설명 ≈ $0.02~0.03 → 하루 1~2회면 월 $1~2
+
+#### 작업 순서
+1. 프로필 뼈대 — `b2-arbeit` 만 넣고 기존 동작이 그대로인지 확인(`npm test` · `npm run check`)
+2. 문구 모으기 — `t()` 와 한국어 파일부터. 화면은 그대로 보여야 한다
+3. `gym10` 형식 + 교정 요청문 + 독일어 설명
+4. 꺼내기 단서(`cue`) + 표현 틀 저장(DE 로 보내기 끄기)
+5. 독일어 문구(오늘 → 기록 → 교정 → 꺼내기 순)
+6. 진도 탭(오류 유형 · 도구 8개 · 카테고리) + 상한 올리기(환경 변수 · Console)
+7. 듣기 출처 — 1~6 을 써 본 뒤 결정
+
+#### 아직 안 정한 것
+- 듣기 출처 확정과 듣기 2단계(AI 받아쓰기) 착수 여부
+
+#### 결정 (2026-10-10)
+- 아들 계정은 DE · Karten 을 쓰지 않는다 → 표현 틀 복습은 Alltag 꺼내기 · 되살리기만
+- 학교 과제 글을 넣어 교정받는 것을 앱이 막지 않는다. [건너뛰기] 제한도 두지 않는다 — 번역기 · AI 를 따로 쓰는 것은 막을 수 없으니 본인 양심에 맡긴다
+- 비용 상한은 올린다 (1인당 월 $5, Console $15)
+
 ---
 
 ## 1. 확정 결정 (2026-09-23)
@@ -241,6 +323,7 @@ AI 호출은 **교정 1회**(전부 받아 두고 화면에서만 나눠 연다 
 - 상한 판정 = 이번 달 `ai_usage_log` 중 kind가 `alltag-`로 시작하는 행의 cost_usd 합
 - ⚠ DE `aiUsage.js` 의 `MODEL_PRICING` 에 Sonnet 5 단가가 없으면 DE 화면의 비용 표시가 0으로 나온다 — CP2에서 DE 쪽에 한 줄 추가
 - 이중 안전장치: Claude Console에서도 월 사용 한도를 $5로 설정 (Edge Function은 상한 없이 그대로 넘기므로)
+- **2026-10-10 결정**: 상한을 1인당 월 $5 로 올린다(0-6절, 아들용 gym10 프로필). 판정은 이미 사용자별이라 코드는 그대로 — Vercel `VITE_ALLTAG_MONTHLY_CAP_USD` 를 5 로, Console 한도를 $15 로 바꾸는 날 위 표의 금액($4 · $5)도 고친다
 - 설정값: `VITE_ALLTAG_AI_MODEL`(기본 claude-sonnet-5), `VITE_ALLTAG_MONTHLY_CAP_USD`(기본 3) — 키가 아니라서 VITE_ 여도 안전
 - 요금 출처: https://platform.claude.com/docs/en/about-claude/pricing (2026-09-23 확인)
 
@@ -293,6 +376,7 @@ AI 호출은 **교정 1회**(전부 받아 두고 화면에서만 나눠 연다 
 - CP3 ✅ 2026-09-28 — 🔴 `screens/Recall.jsx`(한국어 → 말하기 → 단어 단위 채점(`lib/recall.js`, AI 없음) · 첫 글자 힌트 · 막힌 것만 한 번 더 · 결과는 `correction.recall`), 되살리기 `components/Revive.jsx`(14·7·3·1일 전 문장 → 오늘 상황으로 바꿔 한 문장 · `parts.revive`), 원어민 발음 `lib/audio.js`+`api/tts.js`(DE 와 같은 파일 · `card_meta` upsert 만 · 실패하면 기기 목소리), 새 단어 → `custom_words`(교정 응답 `words` · DE 기본 단어장/내 단어에 있으면 ✓ · 단어장 Alltag). 가드레일에 `generated_words`(읽기)·`card_meta`(upsert) 추가. 연속 일수·10분 모드는 CP1 에서 이미 있음
 - CP4 (1) ✅ 2026-10-07 — ✏️ 오답 노트(0-5절): `lib/drill.js`(틀린 곳 모으기 · 같은 문장의 다른 오류는 미리 고쳐 둠 · 간격 · 유형 교차 · 졸업 · 채점은 교정 1단계 `selfFixed` · AI 없음), `screens/Drill.jsx`(고쳐 쓰기 → 정답·이유 → 오늘 상황 한 문장(선택, `drill[n].made`)), 진도 탭 **자주 틀리는 것 Top 5**(유형별 횟수·졸업 막대 · [다시 고치기] · DE ↗ `?grammar=` · 섞어서 다시 고치기), 오늘 화면 선택 카드(때가 된 것이 있을 때만). 기록은 App 이 최근 400일을 읽어 둔다(기록 탭을 떠날 때마다 새로). 철자·뜻(Rechtschreibung·Bedeutung)은 세기만 하고 연습은 안 낸다. DE 쪽: Dojo 📐 문법(Basiswortschatz 로드맵 2026-10-07)
   - 2026-10-09 문장 고르기(`components/DrillPicker.jsx`): 오답 노트를 열면 먼저 고르기 화면 — 추천(때가 된 것, 유형 섞어 5개)을 미리 체크해 두고 넣고 뺀다. 묶음은 오늘 할 때 · 아직 때가 아님(미리 해도 됨) · 졸업(펼쳐서 다시 고를 수 있음, 틀리면 졸업이 풀림). 유형 칩으로 거르기
+- 프로필 (1) ✅ 2026-10-10 — 뼈대(0-6절 작업 순서 1): `src/profiles/index.js`(`profileFor(settings)` · 값이 없으면 `b2-arbeit` · 화면/단서 언어는 설정이 이김) + `b2-arbeit.js`(기존 표를 가리키기만 한다 — 형식 · 문법 8개 · 로드맵 · 듣기 출처 · DE 로 보내기). `correct.js` 의 요청문이 `profile`(맥락 · 문법 · 카테고리)을 받는다. 안 주면 기본 프로필이라 **요청문은 글자 하나 안 바뀜**(바꾸기 전후 출력 비교로 확인). 화면은 아직 프로필을 넘기지 않는다 — gym10 을 넣을 때 연결
 
 ---
 
@@ -303,6 +387,7 @@ AI 호출은 **교정 1회**(전부 받아 두고 화면에서만 나눠 연다 
 4. 음성 인식 → **무료 브라우저 음성 인식으로 시작**. 인식률 문제가 쌓이면 그때 재론
 5. DE 학습 기록 → **읽기 허용**. `src/lib/deAdapter.js` 한 파일에서만, 쓰기는 가드레일로 차단
 6. 학습 원리 적용 (23:24) → **0-2절**. 반복→인출, 한 번에 공개→단계 공개, 3개월차부터 형식 교차. 하루 20분 예산은 유지
+7. 프로필 (2026-10-10) → **0-6절**. `gym10` = 김나지움 10학년 아들용 Deutsch 글쓰기 · 독일어 화면 · DE/Karten 연결 없음 · 과제 글 교정은 막지 않음(본인 양심) · 상한 1인당 월 $5
 
 ---
 

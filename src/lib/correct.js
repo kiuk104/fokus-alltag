@@ -8,23 +8,18 @@
 //   5 외울 3문장     keep → Fokus DE user_sentences
 // 한국어로 쓴 날(korean)은 1단계 대신 keywords(독일어 핵심 단어 5개)를 먼저 보여 주고, 내가 독일어로 말해 본다.
 
-import { GRAMMAR } from "./program.js";
+import { defaultProfile } from "../profiles/index.js";
 
+// 누구를 · 무슨 글을 · 어떤 문법으로 가르치는지는 프로필이 정한다(기획서 0-6절, src/profiles/).
+// 요청문 함수들은 profile 을 받고, 안 주면 기본 프로필(b2-arbeit)이다.
+// 아래 세 값은 기본 프로필의 것 — 프로필을 모르는 옛 코드가 그대로 쓰도록 남겨 둔다.
+const GRAMMAR = defaultProfile.grammar;
 const GRAMMAR_KEYS = GRAMMAR.map((g) => g.key);
-const DEFAULT_CATEGORY = "Berufs- und Arbeitsleben";
-
-// DE 문장 카테고리(34 챕터) 중 이 앱에서 나올 법한 것만 AI 에게 보여 준다 — 전부 주면 엉뚱한 데 넣는다.
-export const CATEGORIES = [
-  "Berufs- und Arbeitsleben", "Verkehr", "Einkaufen", "Essen", "Wohnen", "Soziale Beziehungen",
-  "Gespräche I", "Charakter und Gefühle", "Alltägliche Tätigkeiten", "Zeit", "Orientierung im Raum",
-  "Staat und Politik", "Wirtschaft und Finanzen", "Medien und Kommunikationsmittel", "Klima",
-  "Krankheit und medizinische Versorgung", "Freizeit",
-];
-
-export const SYSTEM =
-  "Du bist ein geduldiger Deutschlehrer für einen koreanischen Erwachsenen (Niveau B1, Ziel B2), " +
-  "der als Lieferfahrer bei REWE in Deutschland arbeitet. Erklärungen schreibst du auf Koreanisch, " +
-  "Beispiele und Korrekturen auf Deutsch. Antworte ausschließlich mit einem JSON-Objekt, ohne Markdown.";
+export const CATEGORIES = defaultProfile.categories;
+const DEFAULT_CATEGORY = CATEGORIES[0];
+export const SYSTEM = defaultProfile.prompt.system;
+/** 프로필의 system 지시문 */
+export const systemFor = (profile = defaultProfile) => profile.prompt.system;
 
 // 한글이 든 줄 = 학습자가 먼저 적은 **한국어 의도**. 뜻을 먼저 정해 두고 독작하는 방식(2026-09-30 기욱).
 // 교정 대상이 아니라 "무슨 말을 하려던 건지" 알려 주는 줄이다.
@@ -48,21 +43,22 @@ export function markIntent(text) {
 }
 
 /** 교정 요청문 */
-export function correctionPrompt({ text, month, tplTitle, korean }) {
+export function correctionPrompt({ text, month, tplTitle, korean, profile = defaultProfile }) {
   const intent = korean ? { has: false, text } : markIntent(text);
-  const grammarList = GRAMMAR.map((g) => `${g.key} (${g.label})`).join(", ");
+  const { scene } = profile.prompt;
+  const grammarList = profile.grammar.map((g) => `${g.key} (${g.label})`).join(", ");
   const common = `
 - "grammar": 이 글에서 연습하기 좋은 B2 문법 1~2개. key 는 반드시 다음 중 하나: ${grammarList}. note 는 한국어 한 줄.
 - "keep": 오늘 외울 문장 정확히 3개. 학습자의 실제 상황에서 나온 자연스러운 B2 문장. 각각
   { "de": 독일어 문장, "ko": 자연스러운 한국어 뜻, "grammar": 위 key 중 하나 또는 "", "topic": 독일어 주제 명사 한 단어(예: Parkplatz, Lieferung, Kunde),
-    "category": 다음 중 하나 — ${CATEGORIES.join(" | ")} }
+    "category": 다음 중 하나 — ${profile.categories.join(" | ")} }
 - "words": b1·b2·keep 에 나온 단어 중 B1 학습자가 **새로 배울 만한** 단어 최대 5개 (기본 단어·고유명사 제외). 각각
   { "de": 관사 없는 기본형(명사는 단수 1격, 동사는 부정형), "article": 명사면 "der"|"die"|"das", 아니면 "",
     "ko": 한국어 뜻, "en": 영어 뜻 한두 단어, "level": "B1"|"B2" }. 없으면 [].
 - "errorTypes": 틀린 유형 이름 (독일어 한두 단어: Artikel, Verbstellung, Präposition, Kasus, Wortwahl, Rechtschreibung, Zeitform …). 없으면 [].`;
 
   if (korean) {
-    return `학습자가 오늘 REWE 배송 중 있었던 일을 **한국어로** 적었다 (지친 날). ${month}개월차 · 형식: ${tplTitle}.
+    return `학습자가 오늘 ${scene}을 **한국어로** 적었다 (지친 날). ${month}개월차 · 형식: ${tplTitle}.
 학습자는 이것을 먼저 스스로 독일어로 말해 볼 것이다. 아래 JSON 으로 답하라:
 - "keywords": 이 내용을 독일어로 말할 때 필요한 핵심 단어 5개 [{ "de": 관사 포함 독일어, "ko": 뜻 }]. 문장은 쓰지 말 것.
 - "b1": { "text": 이 내용을 자연스러운 B1 독일어로, "fixes": [] }
@@ -82,7 +78,7 @@ ${text}`;
 `
     : "";
 
-  return `학습자가 오늘 REWE 배송 중 있었던 일을 독일어로 썼다. ${month}개월차 · 형식: ${tplTitle}.
+  return `학습자가 오늘 ${scene}을 독일어로 썼다. ${month}개월차 · 형식: ${tplTitle}.
 학습자는 틀린 곳을 **먼저 스스로 고쳐 볼 것**이다.${intentNote} 아래 JSON 으로 답하라:
 - "b1": { "text": 학습자의 글을 뜻은 그대로 두고 자연스러운 B1 독일어로 고친 글 (칸 이름 [ … ] 과 🇰🇷 줄은 빼고, 독일어만 이어서),
           "fixes": 틀린 곳마다 { "from": 학습자 글에 **그대로 있는** 틀린 부분(1~4단어), "to": 고친 표현,
@@ -106,8 +102,8 @@ JSON 으로만: { "ok": 설명의 핵심이 맞으면 true, "add": 한국어 한
 }
 
 /** B2 · 원어민 글만 따로 받기 — 교정 응답에서 이 둘이 비어 왔을 때 (짧게) */
-export function levelUpPrompt({ b1 }) {
-  return `아래는 학습자가 REWE 배송 중 있었던 일을 쓴 B1 독일어 글이다.
+export function levelUpPrompt({ b1, profile = defaultProfile }) {
+  return `아래는 학습자가 ${profile.prompt.scene}을 쓴 B1 독일어 글이다.
 ${b1}
 
 JSON 으로만: { "b2": 같은 내용을 B2 수준으로 한 단계 올린 글(weil/obwohl/Passiv/Konjunktiv II 등을 자연스럽게) — 문자열,
