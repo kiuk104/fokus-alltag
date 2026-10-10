@@ -1,0 +1,50 @@
+// 오늘 화면(screens/Today.jsx · components/ListenStep.jsx)
+export default {
+  "today.before.sub": "{date}에 시작 · 오늘 해 두는 것은 연습으로만 남습니다",
+  "today.month": "{n}개월차",
+  "today.day": "· {n}일째",
+  "today.phase": "{no}단계 “{title}” — {goal} ·",
+  "today.done.big": "6개월 완주",
+  "today.done.sub": "문제가 생겼을 때 3~5분 동안 독일어로 설명할 수 있는가 — 진도 탭에서 확인.",
+  "today.streak": "일 말하기 연속",
+  "today.streak.ok": "· 오늘 완료",
+  "today.sunday": "일요일은 쉬는 날입니다. 해도 되고, 안 해도 연속 일수가 끊기지 않아요.",
+
+  "today.tpl.kicker": "오늘의 말하기",
+  "today.tpl.mix": "섞는 날",
+  "today.tpl.mixHint": "지난 형식을 다시 꺼내 쓰는 날 — 섞어야 오래 남는다.",
+
+  "today.routine": "오늘 루틴",
+  "today.short": "오늘은 10분만",
+  "today.short.note": "말하기와 3문장 꺼내기만 하면 오늘도 연속으로 칩니다.",
+  "today.skipped": " · 오늘은 건너뜀",
+  "today.check": "{title} 완료",
+  "today.allDone": "네 칸 모두 끝. 수고했어요.",
+
+  "today.step.listen.title": "듣기",
+  "today.step.listen.min": "5분",
+  "today.step.speak.title": "말하기",
+  "today.step.speak.min": "10분",
+  "today.step.speak.desc": "오늘 있었던 일 하나를 독일어로.",
+  "today.step.speak.go": "기록",
+  "today.step.correct.title": "AI 교정",
+  "today.step.correct.min": "5분",
+  "today.step.correct.desc": "틀린 곳을 먼저 스스로 고쳐 보고 → 정답 → 문법 하나를 내 말로 설명.",
+  "today.step.repeat.title": "3문장 꺼내기",
+  "today.step.repeat.min": "5~10분",
+  "today.step.repeat.desc": "한국어 뜻만 보고 독일어로 말한 뒤 정답 확인. 따라 읽기보다 오래 남는다.",
+  "today.step.repeat.go": "꺼내기",
+
+  "today.listen.sunday": "일요일 — 듣고 싶으면 아무거나. 안 해도 괜찮아요.",
+  "today.listen.play": "▶ 듣기",
+  "today.listen.open": "▶ 열기",
+  "today.listen.line": "들은 내용 한 줄 — Es geht um …",
+  "today.listen.save": "저장",
+
+  "today.drill.title": "✏️ 오답 노트 · {n}개",
+  "today.drill.desc": "예전 교정에서 틀린 곳을 다시 고쳐 쓸 때가 됐어요. 선택이에요.",
+  "today.drill.go": "하기",
+
+  "today.link.karten": "외운 문장 복습",
+  "today.link.de": "단어·문장 창고",
+};

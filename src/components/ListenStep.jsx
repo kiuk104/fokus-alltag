@@ -7,8 +7,10 @@
 import { useEffect, useState } from "react";
 import { openApp } from "../lib/links";
 import { IN_APP } from "../lib/listenApi";
+import { useT } from "../strings/useT";
 
 export default function ListenStep({ source, row, skipped, onToggle, onPatch, onOpenInApp }) {
+  const t = useT();
   const on = !!row.listen;
   const [line, setLine] = useState(row.note || "");
   const [open, setOpen] = useState(false); // 한 줄 칸은 열어 본 뒤에만 펼친다 — 처음부터 칸이 있으면 부담스럽다
@@ -28,21 +30,21 @@ export default function ListenStep({ source, row, skipped, onToggle, onPatch, on
   };
 
   const save = () => {
-    const t = line.trim();
-    if (!t) return;
-    onPatch({ note: t, listen: true });
+    const text = line.trim();
+    if (!text) return;
+    onPatch({ note: text, listen: true });
   };
 
   return (
     <li className={`step listen ${on ? "done" : ""} ${skipped ? "skip" : ""}`}>
       <div className="listen-top">
-        <button className="step-check" onClick={onToggle} aria-pressed={on} aria-label="듣기 완료">
+        <button className="step-check" onClick={onToggle} aria-pressed={on} aria-label={t("today.check", { title: t("today.step.listen.title") })}>
           <span className="dot g">{on ? "✓" : ""}</span>
         </button>
         <div className="step-body" onClick={() => setOpen((o) => !o)}>
           <div className="step-title">
-            듣기 <span className="step-min">5분</span>
-            {skipped && <span className="step-min"> · 오늘은 건너뜀</span>}
+            {t("today.step.listen.title")} <span className="step-min">{t("today.step.listen.min")}</span>
+            {skipped && <span className="step-min">{t("today.skipped")}</span>}
           </div>
           {source ? (
             <div className="step-desc">
@@ -51,12 +53,12 @@ export default function ListenStep({ source, row, skipped, onToggle, onPatch, on
               {source.how}
             </div>
           ) : (
-            <div className="step-desc">일요일 — 듣고 싶으면 아무거나. 안 해도 괜찮아요.</div>
+            <div className="step-desc">{t("today.listen.sunday")}</div>
           )}
         </div>
         {source && (
           <button className="btn small" onClick={go}>
-            {inApp ? "▶ 듣기" : "▶ 열기"}
+            {inApp ? t("today.listen.play") : t("today.listen.open")}
           </button>
         )}
       </div>
@@ -68,12 +70,12 @@ export default function ListenStep({ source, row, skipped, onToggle, onPatch, on
             value={line}
             onChange={(e) => setLine(e.target.value)}
             onKeyDown={(e) => e.key === "Enter" && save()}
-            placeholder="들은 내용 한 줄 — Es geht um …"
+            placeholder={t("today.listen.line")}
             lang="de"
             spellCheck={false}
           />
           <button className="btn small" disabled={!line.trim() || saved} onClick={save}>
-            {saved ? "✓" : "저장"}
+            {saved ? "✓" : t("today.listen.save")}
           </button>
         </div>
       )}

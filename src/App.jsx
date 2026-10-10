@@ -24,6 +24,9 @@ import Settings from "./screens/Settings";
 import Listen from "./screens/Listen";
 import Recall from "./screens/Recall";
 import Drill from "./screens/Drill";
+import { profileFor } from "./profiles/index.js";
+import { LangContext } from "./strings/useT";
+import { makeT } from "./strings/t.js";
 import "./styles/app.css";
 import "./styles/pwa.css"; // 마지막 — 안전영역 여백이 app.css 를 덮어야 한다
 
@@ -81,6 +84,10 @@ export default function App() {
 
   const userId = session?.user?.id;
 
+  // 프로필(무엇을 가르치는가)과 화면 언어 — alltag_program.settings 에서. 값이 없으면 b2-arbeit · 한국어.
+  const profile = useMemo(() => profileFor(program?.settings), [program?.settings]);
+  const t = makeT(profile.uiLang);
+
   const reload = useCallback(async () => {
     if (!userId) return;
     setError(null);
@@ -123,7 +130,7 @@ export default function App() {
       setProgram(await saveProgram(userId, { start_date: program.start_date, settings }));
     } catch (e) {
       setProgram(before);
-      setError("설정 저장 실패: " + e.message);
+      setError(t("app.err.settings", { msg: e.message }));
     }
   };
 
@@ -150,7 +157,7 @@ export default function App() {
         else m.delete(day);
         return m;
       });
-      setError("저장 실패: " + e.message);
+      setError(t("app.err.save", { msg: e.message }));
     }
   };
 
@@ -164,9 +171,9 @@ export default function App() {
     let alive = true;
     loadEntriesRange(userId, addDays(today, -400), today)
       .then((rows) => alive && setEntries(rows))
-      .catch((e) => alive && setError("오답 노트 불러오기 실패: " + e.message));
+      .catch((e) => alive && setError(t("app.err.drill", { msg: e.message })));
     return () => { alive = false; };
-  }, [userId, hasProgram, today, tab]);
+  }, [userId, hasProgram, today, tab, t]);
   const drillItems = useMemo(() => (entries ? collectItems(entries) : []), [entries]);
   const drillDue = useMemo(() => drillItems.filter((it) => isDue(it, today)).length, [drillItems, today]);
   // 유형을 골라 들어오면 그 유형 문장만 고르기 화면에 — 추천(preset)은 지금까지와 같은 규칙
@@ -188,12 +195,11 @@ export default function App() {
       <div className="shell">
         {pwa}
         <div className="notice">
-          <b>테이블이 아직 없습니다.</b>
+          <b>{t("app.missing.title")}</b>
           <p>
-            Supabase 대시보드 → SQL Editor 에서 <code>{MIGRATION_FILE}</code> 를 통째로 실행한 뒤
-            다시 열어 주세요.
+            {t("app.missing.before")}<code>{MIGRATION_FILE}</code>{t("app.missing.after")}
           </p>
-          <button className="btn" onClick={reload}>다시 확인</button>
+          <button className="btn" onClick={reload}>{t("app.missing.retry")}</button>
         </div>
       </div>
     );
@@ -203,7 +209,7 @@ export default function App() {
     return (
       <div className="shell">
         {pwa}
-        {error ? <div className="notice error">{error}</div> : <p className="muted pad">불러오는 중…</p>}
+        {error ? <div className="notice error">{error}</div> : <p className="muted pad">{t("app.loading")}</p>}
       </div>
     );
   }
@@ -219,13 +225,14 @@ export default function App() {
   }
 
   return (
+    <LangContext.Provider value={profile.uiLang}>
     <div className="shell has-tabs">
       <header className="topbar">
         <div className="topbar-title">
           Fokus <em>Alltag</em>
         </div>
         <div className="topbar-spacer" />
-        <button className="icon-btn" aria-label="설정" onClick={() => setSettingsOpen(true)}>
+        <button className="icon-btn" aria-label={t("app.settings")} onClick={() => setSettingsOpen(true)}>
           ⚙
         </button>
       </header>
@@ -308,5 +315,6 @@ export default function App() {
         />
       )}
     </div>
+    </LangContext.Provider>
   );
 }
