@@ -13,7 +13,7 @@ const hhmm = (iso) => new Date(iso).toLocaleTimeString("ko-KR", { hour: "2-digit
 const dayLabel = (d) =>
   new Date(`${d}T12:00:00`).toLocaleDateString("ko-KR", { month: "long", day: "numeric", weekday: "short" });
 
-export default function PastEntries({ userId, today }) {
+export default function PastEntries({ userId, today, onError }) {
   const [rows, setRows] = useState(null);
 
   useEffect(() => {
@@ -49,7 +49,8 @@ export default function PastEntries({ userId, today }) {
                   </span>
                   <span className="pe-first">{(r.raw_text || "").replace(/^\[[^\]]+\]\s*/, "").split("\n")[0]}</span>
                 </summary>
-                <EntryReview entry={r} />
+                <EntryReview entry={r} userId={userId} onError={onError}
+                  onEntry={(row) => setRows((list) => list.map((x) => (x.id === row.id ? row : x)))} />
               </details>
             ))}
           </section>

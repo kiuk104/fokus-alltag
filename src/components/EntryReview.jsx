@@ -1,8 +1,10 @@
 // 지난 기록 한 개의 교정 다시 보기 (읽기만) — components/PastEntries.jsx 에서 연다.
 // 그날 받은 교정은 alltag_entries.correction 에 다 있다 — AI 를 다시 부르지 않는다(비용 0).
 // 지난 기록은 고치지 않는다: 저장·교정은 그날의 🟡🔵 칸과 묶여 있어서, 오늘 화면에서 고치면 날짜가 섞인다.
+// 예외 (2026-10-13): 그날 보내지 않은 외울 문장·새 단어는 지금 Fokus DE 로 보낼 수 있다 — 교정 내용은 그대로.
 
-import { sentIds } from "../lib/entryRepo";
+import { sentIds, patchEntry } from "../lib/entryRepo";
+import { StepKeep, NewWords } from "./KeepToDe";
 import { selfFixed } from "../lib/correct";
 import { GRAMMAR } from "../lib/program";
 import "../styles/review.css";
@@ -10,11 +12,20 @@ import "../styles/review.css";
 const gLabel = (key) => GRAMMAR.find((g) => g.key === key)?.label || key;
 const HANGUL = /[\uAC00-\uD7A3]/;
 
-export default function EntryReview({ entry }) {
+export default function EntryReview({ entry, userId, onEntry, onError }) {
   const c = entry.correction;
   const d = c?.data;
   const prog = c?.progress || {};
   const lines = String(entry.raw_text || "").split("\n");
+  // 진행 상태만 덧붙여 저장 (교정 글은 안 건드린다)
+  const saveProg = async (patch) => {
+    try {
+      onEntry(await patchEntry(userId, entry.id, { correction: { ...c, progress: { ...prog, ...patch } } }));
+    } catch (e) {
+      onError("저장 실패: " + e.message);
+    }
+  };
+  const canSend = !!userId && !!onEntry;
 
   return (
     <div className="rv-wrap">
@@ -94,8 +105,8 @@ export default function EntryReview({ entry }) {
             </Block>
           )}
 
-          {(prog.keepEdited || d.keep)?.length > 0 && (
-            <Block label={sentIds(entry).length ? "외울 문장 · Fokus DE 로 보냄" : "외울 문장 (보내지 않음)"}>
+          {(prog.keepEdited || d.keep)?.length > 0 && sentIds(entry).length > 0 && (
+            <Block label="외울 문장 · Fokus DE 로 보냄">
               <ul className="rv-keep">
                 {(prog.keepEdited || d.keep).filter((k) => k.on ?? true).map((k, i) => (
                   <li key={i}><b lang="de">{k.de}</b><span>{k.ko}</span></li>
@@ -104,7 +115,22 @@ export default function EntryReview({ entry }) {
             </Block>
           )}
 
-          {d.words?.length > 0 && (
+          {/* 그날 안 보낸 외울 문장 → 지금 보내기 (새 단어도 그 안에서) */}
+          {(prog.keepEdited || d.keep)?.length > 0 && !sentIds(entry).length && canSend && (
+            <Block label="외울 문장 (아직 안 보냄)">
+              <StepKeep data={d} entry={entry} prog={prog} userId={userId} month={entry.month_no} onError={onError} past
+                onSaved={(ids, keepEdited) => saveProg({ saved: true, keepEdited, sentIds: ids })}
+                onWords={(wordsSaved) => saveProg({ wordsSaved })} />
+            </Block>
+          )}
+
+          {/* 문장은 보냈지만 새 단어는 아직일 수 있다 — 단어만 따로 */}
+          {d.words?.length > 0 && canSend && sentIds(entry).length > 0 && (
+            <NewWords words={d.words} saved={prog.wordsSaved} userId={userId} month={entry.month_no} onError={onError}
+              onSaved={(wordsSaved) => saveProg({ wordsSaved })} />
+          )}
+
+          {d.words?.length > 0 && !canSend && (
             <Block label="새 단어">
               <div className="rv-kw">
                 {d.words.map((w) => (

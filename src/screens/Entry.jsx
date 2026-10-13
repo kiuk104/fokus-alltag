@@ -297,7 +297,7 @@ export default function Entry({ program, today, userId, onPatch, onError }) {
         </section>
       )}
 
-      <PastEntries userId={userId} today={today} />
+      <PastEntries userId={userId} today={today} onError={onError} />
     </div>
   );
 }
