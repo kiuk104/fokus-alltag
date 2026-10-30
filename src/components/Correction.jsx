@@ -9,7 +9,7 @@
 // AI 호출은 교정 1회 + 자기 설명 확인 1회. 결과와 진행 상태는 alltag_entries.correction 에 저장되어
 // 앱을 닫았다 열어도 이어서 한다. 상한에 닿으면 "교정 요청 복사"(Claude 앱)로 돌아간다.
 
-import { useLayoutEffect, useRef, useState } from "react";
+import { useCallback, useLayoutEffect, useRef, useState } from "react";
 import { askClaude, MONTHLY_CAP } from "../lib/ai";
 import { SYSTEM, correctionPrompt, explainPrompt, extractJson, normalizeCorrection, normalizeExplain, markFixes, selfFixed, levelUpPrompt, normalizeLevelUp } from "../lib/correct";
 import { patchEntry } from "../lib/entryRepo";
@@ -23,6 +23,24 @@ const STEPS = ["스스로 고치기", "B1 교정", "B2 · 원어민", "내 말�
 const gLabel = (key) => GRAMMAR.find((g) => g.key === key)?.label || key;
 // 칸 이름 [Level 1] 은 교정할 때 방해가 되니 떼고 보여 준다
 const plain = (t) => String(t || "").replace(/^\[[^\]]+\]\s*/gm, "");
+
+// 단계 사이를 오가도 쓰던 글이 남게 — 단계 화면은 열 때마다 새로 만들어져서 상태가 사라진다(2026-10-30).
+// 기기에 임시로 둔다. 열쇠에 교정 시각(at)을 넣어 [다시 교정] 하면 옛 초안은 저절로 안 쓰인다.
+function useDraft(did, key, init) {
+  const k = `fa-crdraft-${did}-${key}`;
+  const [v, setV] = useState(() => {
+    try {
+      return localStorage.getItem(k) ?? init;
+    } catch {
+      return init;
+    }
+  });
+  const set = useCallback((x) => {
+    setV(x);
+    try { localStorage.setItem(k, x); } catch { /* 기기 저장이 막혀 있으면 화면에만 */ }
+  }, [k]);
+  return [v, set];
+}
 
 export default function Correction({ entry, userId, month, tplTitle, onEntry, onPatchDay, onError }) {
   const c = entry.correction;
@@ -138,6 +156,7 @@ export default function Correction({ entry, userId, month, tplTitle, onEntry, on
   const step = prog.step || 0;
   const go = (n, extra) => save({ step: Math.max(step, n), view: n, ...extra });
   const view = prog.view ?? step;
+  const did = `${entry.id}-${c?.at || ""}`;
 
   return (
     <section className="cr">
@@ -167,11 +186,11 @@ export default function Correction({ entry, userId, month, tplTitle, onEntry, on
         ))}
       </ol>
 
-      {view === 0 && <StepSelf data={data} text={entry.raw_text} korean={korean} prog={prog} onDone={(mine) => go(1, { mine })} />}
+      {view === 0 && <StepSelf did={did} data={data} text={entry.raw_text} korean={korean} prog={prog} onDone={(mine) => go(1, { mine })} />}
       {view === 1 && <StepB1 data={data} korean={korean} prog={prog} onNext={() => go(2)} />}
-      {view === 2 && <StepB2 data={data} prog={prog} busy={busy} onFill={fillB2} onNext={(myB2) => go(3, { myB2 })} />}
+      {view === 2 && <StepB2 did={did} data={data} prog={prog} busy={busy} onFill={fillB2} onNext={(myB2) => go(3, { myB2 })} />}
       {view === 3 && (
-        <StepExplain data={data} prog={prog} userId={userId} busy={busy} setBusy={setBusy} onError={onError}
+        <StepExplain did={did} data={data} prog={prog} userId={userId} busy={busy} setBusy={setBusy} onError={onError}
           onDone={(explain) => go(4, explain ? { explain } : {})} />
       )}
       {view === 4 && (
@@ -184,8 +203,8 @@ export default function Correction({ entry, userId, month, tplTitle, onEntry, on
 }
 
 // ── ① 스스로 고치기 ─────────────────────────────────────────────────────────
-function StepSelf({ data, text, korean, prog, onDone }) {
-  const [mine, setMine] = useState(prog.mine ?? (korean ? "" : plain(text)));
+function StepSelf({ did, data, text, korean, prog, onDone }) {
+  const [mine, setMine] = useDraft(did, "self", prog.mine ?? (korean ? "" : plain(text)));
   const fixes = data.b1.fixes;
 
   if (korean) {
@@ -322,8 +341,8 @@ function StepB1({ data, korean, prog, onNext }) {
 }
 
 // ── ③ B2 · 원어민 ───────────────────────────────────────────────────────────
-function StepB2({ data, prog, busy, onFill, onNext }) {
-  const [mine, setMine] = useState(prog.myB2 || "");
+function StepB2({ did, data, prog, busy, onFill, onNext }) {
+  const [mine, setMine] = useDraft(did, "b2", prog.myB2 || "");
   const [shown, setShown] = useState(prog.step > 2);
   return (
     <div className="cr-body">
@@ -370,10 +389,10 @@ function StepB2({ data, prog, busy, onFill, onNext }) {
 }
 
 // ── ④ 자기 설명 ─────────────────────────────────────────────────────────────
-function StepExplain({ data, prog, userId, busy, setBusy, onError, onDone }) {
+function StepExplain({ did, data, prog, userId, busy, setBusy, onError, onDone }) {
   const g = data.grammar[0];
   const example = data.keep.find((k) => k.grammar === g?.key)?.de || data.b2 || data.b1.text;
-  const [mine, setMine] = useState(prog.explain?.mine || "");
+  const [mine, setMine] = useDraft(did, "explain", prog.explain?.mine || "");
   const [res, setRes] = useState(prog.explain?.res || null);
 
   if (!g) {
