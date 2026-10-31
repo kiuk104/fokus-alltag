@@ -19,7 +19,7 @@ import {
 
 const TALK_TAG = "Sprechen";
 
-export default function TalkReview({ result, userId, today, month, onSaved, onDiscard, onAgain, onPron, onClose, onError }) {
+export default function TalkReview({ result, userId, today, month, onSaved, onDiscard, onAgain, onPron, onContinue, onClose, onError }) {
   const [review, setReview] = useState(null);
   const [picked, setPicked] = useState(null);
   const [state, setState] = useState("loading"); // loading | ready | empty | failed | saving | saved
@@ -39,7 +39,7 @@ export default function TalkReview({ result, userId, today, month, onSaved, onDi
     setState("loading");
     askClaude(userId, {
       system: REVIEW_SYSTEM,
-      prompt: reviewPrompt(result.lines, { topicLabel: topic.label }),
+      prompt: reviewPrompt(result.lines, { topicLabel: topic.label, prior: result.prior || [] }),
       maxTokens: 3500,
       kind: "alltag-talk-review",
     })
@@ -69,7 +69,7 @@ export default function TalkReview({ result, userId, today, month, onSaved, onDi
     try {
       const entry = talkEntry({
         day: today, month, topic: result.topic, lines: result.lines, review, picked,
-        seconds: result.seconds, cost: result.cost, model: result.model,
+        seconds: result.seconds, cost: result.cost, model: result.model, continuedFrom: result.continuedFrom || null,
       });
       let row = await saveEntry(userId, entry);
       let sent = 0;
@@ -106,7 +106,7 @@ export default function TalkReview({ result, userId, today, month, onSaved, onDi
 
   const copyPrompt = async () => {
     try {
-      await navigator.clipboard.writeText(`${REVIEW_SYSTEM}\n\n${reviewPrompt(result.lines, { topicLabel: topic.label })}`);
+      await navigator.clipboard.writeText(`${REVIEW_SYSTEM}\n\n${reviewPrompt(result.lines, { topicLabel: topic.label, prior: result.prior || [] })}`);
       setWhy((w) => `${w}\n\n복사했어요. Claude 앱에 붙여 넣으면 같은 정리를 받을 수 있어요.`);
     } catch { /* 복사 막힘 */ }
   };
@@ -115,6 +115,10 @@ export default function TalkReview({ result, userId, today, month, onSaved, onDi
     <details className="lsn-paste tk-transcript" open={showAll} onToggle={(e) => setShowAll(e.currentTarget.open)}>
       <summary>대화록 · {clock(result.seconds)} · 내 말 {mine.length}줄</summary>
       <ul className="lsn-paste-body tk-lines flat">
+        {(result.prior || []).slice(-6).map((l, i) => (
+          <li key={`p${i}`} className={`tk-line prior ${l.who}`}><span lang="de" className="tk-text">{l.text}</span></li>
+        ))}
+        {result.prior?.length > 0 && <li className="tk-divider muted tiny">— 지난 대화 · 여기서부터 이번 —</li>}
         {result.lines.map((l, i) => (
           <li key={i} className={`tk-line ${l.who}`}>
             {l.who === "me" && <span className="tk-who">인식된 내 말</span>}
@@ -172,6 +176,7 @@ export default function TalkReview({ result, userId, today, month, onSaved, onDi
         <div className="cr-actions">
           {saved.sent > 0 && KARTEN_URL && <button className="link-btn" onClick={() => openApp(KARTEN_URL)}>외우기 <b>Karten</b> ↗</button>}
           {saved.rows.length > 0 && onPron && <button className="btn" onClick={() => onPron(saved.rows)}>🗣 이 문장들로 발음 연습</button>}
+          {onContinue && <button className="btn" onClick={onContinue}>▶ 이 이야기 이어서</button>}
           <button className="btn" onClick={onAgain}>한 번 더</button>
           <button className="btn primary" onClick={onClose}>닫기</button>
         </div>

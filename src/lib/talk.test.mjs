@@ -2,7 +2,7 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 import {
   applyEvent, cleanLines, linesToText, myLines, rtCost, transcribeCost, sumUsage, parseReview, keepRows, talkEntry,
-  defaultPicked, toggleMisheard, misheardOf, looksUnfinished, waitMs, entryText, switchText, SWITCHABLE, SWITCH_RULE, talkInstructions, TOPICS, clock, reviewPrompt,
+  defaultPicked, toggleMisheard, misheardOf, looksUnfinished, waitMs, continueRule, restoreLines, entryText, switchText, SWITCHABLE, SWITCH_RULE, talkInstructions, TOPICS, clock, reviewPrompt,
 } from "./talk.js";
 const reviewPromptFor = (label) => reviewPrompt([{ who: "me", text: "Hallo" }], { topicLabel: label });
 import { collectItems } from "./drill.js";
@@ -150,6 +150,22 @@ test("오늘 쓴 기록 주제: 글을 장면에 붙이고, 없으면 오늘 하
   assert.ok(!SWITCHABLE.some((x) => x.key === "aussprache" || x.key === "heute"));
   assert.match(switchText("kunde"), /Wechsle jetzt das Thema.*Kundin/);
   assert.match(SWITCH_RULE, /freies Gespräch/);
+});
+
+test("이어서 하기: 지난 대화록을 되살리고, 정리는 이번 대화만", () => {
+  const saved = [{ who: "ai", text: "Na?" }, { who: "me", text: "Gut." }];
+  const lines = restoreLines(saved);
+  assert.equal(lines[1].id, "r1");
+  assert.equal(lines[1].done, true);
+  assert.match(continueRule(lines), /Wo waren wir/);
+  assert.match(continueRule(lines, 12, { later: true }), /schon einmal angefangen/);
+  assert.equal(continueRule([]), "");
+  const p = reviewPrompt([{ who: "me", text: "Neu." }], { prior: lines });
+  assert.match(p, /앞 대화[\s\S]*ICH: Gut\.[\s\S]*이번 대화[\s\S]*ICH: Neu\./);
+  assert.doesNotMatch(reviewPrompt([{ who: "me", text: "Neu." }]), /앞 대화/);
+  const r = parseReview('{"fixes":[]}');
+  const e = talkEntry({ day: "d", month: 1, topic: "tag", lines: [], review: r, picked: defaultPicked(r), seconds: 1, cost: 0, model: "m", continuedFrom: 42 });
+  assert.equal(e.correction.talk.continuedFrom, 42);
 });
 
 test("말 끝 기다리기: 덜 끝난 모양을 알아본다", () => {

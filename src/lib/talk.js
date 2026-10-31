@@ -149,14 +149,22 @@ export const DRIVE_RULE =
  * 10분이 지나 이어서 할 때 — 앞 대화 끝부분을 새 세션 지시문에 붙인다(새 세션은 앞 대화를 모른다).
  * 너무 길면 토큰이 매번 다시 들어가니 마지막 maxLines 줄만.
  */
-export function continueRule(lines, maxLines = 12) {
+export function continueRule(lines, maxLines = 12, { later = false } = {}) {
   const tail = cleanLines(lines).slice(-maxLines);
   if (!tail.length) return "";
   return (
-    "Das Gespräch läuft schon. Begrüße ihn NICHT neu und stell dich nicht vor – mach genau dort weiter, wo ihr aufgehört habt " +
-    "(kurze Brücke wie „Wo waren wir? Ach ja …“ ist okay).\nBisheriges Gespräch (Ende):\n" + linesToText(tail)
+    (later
+      ? "Ihr hattet dieses Gespräch schon einmal angefangen und es wurde unterbrochen. Begrüße ihn nur ganz kurz, stell dich NICHT vor, und knüpf direkt an das Ende an " +
+        "(z. B. „Schön, dass wir weitermachen. Wir waren bei …“)."
+      : "Das Gespräch läuft schon. Begrüße ihn NICHT neu und stell dich nicht vor – mach genau dort weiter, wo ihr aufgehört habt " +
+        "(kurze Brücke wie „Wo waren wir? Ach ja …“ ist okay).") +
+    "\nBisheriges Gespräch (Ende):\n" + linesToText(tail)
   );
 }
+
+/** 저장된 대화록({who,text}) → 화면 줄({id,who,text,done}) — 이어서 할 때 되살린다 */
+export const restoreLines = (saved) =>
+  (saved || []).map((l, i) => ({ id: `r${i}`, who: l.who, text: String(l.text || ""), done: true }));
 
 /** 🔁 · 🐢 버튼이 AI 에게 보내는 부탁 (화면 Talk.jsx) */
 export const ASK_REPEAT = "(학습자가 버튼으로 부탁함) 방금 한 말을 한 번 더 말해 줘요. Bitte wiederhole deinen letzten Beitrag genau.";
@@ -419,10 +427,11 @@ export const REVIEW_SYSTEM =
   "Beispiele und Korrekturen auf Deutsch. Antworte ausschließlich mit einem JSON-Objekt, ohne Markdown.";
 
 /** 대화록 → 정리 요청 글 */
-export function reviewPrompt(lines, { topicLabel = "" } = {}) {
+export function reviewPrompt(lines, { topicLabel = "", prior = [] } = {}) {
+  const before = cleanLines(prior).slice(-6);
   return `학습자가 AI 와 독일어로 말하기 연습을 했다${topicLabel ? ` (주제: ${topicLabel})` : ""}.
 아래는 대화록이다. ICH = 학습자(음성 인식으로 받아 적음 — 인식 오류가 있을 수 있다), KI = AI.
-
+${before.length ? `\n(앞 대화 — 이미 정리한 부분, 맥락용. 여기서는 고르지 말 것)\n${linesToText(before)}\n\n(이번 대화 — 여기서만 고른다)` : ""}
 ${linesToText(lines)}
 
 복습할 만한 것만 골라 JSON 하나로 답하라. ICH 의 말만 교정한다. 사소한 것·인식 오류로 보이는 것은 빼고, 학습에 도움이 되는 것만.
@@ -508,7 +517,7 @@ export function keepRows(review, picked) {
 }
 
 /** 저장할 기록 한 줄 (id 없이). month: 몇 개월차 */
-export function talkEntry({ day, month, topic, lines, review, picked, seconds, cost, model }) {
+export function talkEntry({ day, month, topic, lines, review, picked, seconds, cost, model, continuedFrom = null }) {
   const fixes = review.fixes.filter((f, i) => picked.fixes?.[i]);
   const drillable = fixes.filter((f) => f.from);
   const forText = [...new Set(drillable.map((f) => f.said))].join("\n");
@@ -526,7 +535,7 @@ export function talkEntry({ day, month, topic, lines, review, picked, seconds, c
         b1: { text: drillable.map((f) => f.better).join("\n"), fixes: drillable.map(({ from, to, type, hint, why }) => ({ from, to, type, hint, why })) },
       },
       talk: {
-        topic, seconds, cost, model,
+        topic, seconds, cost, model, continuedFrom,
         lines: cleanLines(lines).map(({ who, text }) => ({ who, text })),
         summary: review.summary,
         fixes, korean: review.korean.filter((k, i) => picked.korean?.[i]), phrases: review.phrases.filter((p, i) => picked.phrases?.[i]),

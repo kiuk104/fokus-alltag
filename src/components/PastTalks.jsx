@@ -14,7 +14,7 @@ const DAYS = 60;
 const when = (iso) =>
   new Date(iso).toLocaleString("ko-KR", { month: "long", day: "numeric", weekday: "short", hour: "2-digit", minute: "2-digit" });
 
-export default function PastTalks({ userId, today, onError }) {
+export default function PastTalks({ userId, today, onError, onContinue }) {
   const [rows, setRows] = useState(null);
   const [armed, setArmed] = useState(null); // 한 번 누르면 "정말 지우기?" — 두 번째에 지운다
 
@@ -82,6 +82,9 @@ export default function PastTalks({ userId, today, onError }) {
               )}
 
               <div className="tk-past-del">
+                {onContinue && (t.lines || []).length > 0 && (
+                  <button className="btn small" onClick={() => onContinue(r)}>▶ 이 이야기 이어서 대화하기</button>
+                )}
                 {armed === r.id && (
                   <span className="muted tiny">
                     오답 노트 항목도 같이 지워져요.{nDe > 0 ? " DE 로 보낸 문장은 DE 에 남아요." : ""}

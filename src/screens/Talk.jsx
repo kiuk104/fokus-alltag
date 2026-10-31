@@ -12,7 +12,7 @@ import { useCallback, useEffect, useReducer, useRef, useState } from "react";
 import { connectTalk, rtSupported } from "../lib/realtime";
 import { usageNow, pickModel, recordUsage, MONTHLY_CAP } from "../lib/ai";
 import {
-  ASK_REPEAT, ASK_SLOW, TOPICS, SWITCHABLE, switchText, entryText, STYLES, LANGS, VOICES, TONES, SPEEDS, WAITS, waitMs, DRIVE, DRIVE_RULE, continueRule, topicOf, talkInstructions, applyEvent, cleanLines, myLines, rtCost, transcribeCost, sumUsage,
+  ASK_REPEAT, ASK_SLOW, TOPICS, SWITCHABLE, switchText, entryText, restoreLines, STYLES, LANGS, VOICES, TONES, SPEEDS, WAITS, waitMs, DRIVE, DRIVE_RULE, continueRule, topicOf, talkInstructions, applyEvent, cleanLines, myLines, rtCost, transcribeCost, sumUsage,
   TALK_MAX_MIN, TALK_WARN_MIN, clock,
 } from "../lib/talk";
 import TalkReview from "../components/TalkReview";
@@ -31,7 +31,7 @@ const LAST_KEY = "fa-talk-last"; // 정리 전에 닫혔을 때 대화록을 살
 const readJson = (k, d) => { try { return JSON.parse(localStorage.getItem(k) || "null") ?? d; } catch { return d; } };
 const writeJson = (k, v) => { try { if (v == null) localStorage.removeItem(k); else localStorage.setItem(k, JSON.stringify(v)); } catch { /* 저장 막힘 */ } };
 
-const linesReducer = (lines, ev) => (ev === "reset" ? [] : applyEvent(lines, ev));
+const linesReducer = (lines, ev) => (ev === "reset" ? [] : ev?.type === "__restore" ? ev.lines : applyEvent(lines, ev));
 
 export default function Talk({ userId, today, month, onPatch, onClose, onError }) {
   const [pref, setPref] = useState(() => ({ topic: "tag", mode: "auto", noise: "near", style: "flow", lang: "de", voice: "marin", tone: "freundlich", speed: "normal", filler: "ignore", wait: "normal", pron: false, ...readJson(PREF_KEY, {}) }));
@@ -39,6 +39,8 @@ export default function Talk({ userId, today, month, onPatch, onClose, onError }
   const [drive, setDrive] = useState(false); // 🚗 운전 모드 — 이번 대화에만
   const [run, setRun] = useState({ topic: null, sentences: [], entry: "" }); // 이번 대화의 주제·연습 문장·오늘 쓴 글 (발음 연습을 정리 화면에서 바로 열 때 주제가 바뀐다)
   const [todayText, setTodayText] = useState(null); // 📝 오늘 쓴 기록 — null 이면 아직 안 읽음
+  // 이어서 하기 (2026-10-31): 이미 정리·저장한 지난 대화를 잇는다 — 그 대화록은 맥락으로만(prior), 정리는 이번 말만
+  const [prior, setPrior] = useState(null); // { lines, from: entry id }
   const [lines, dispatch] = useReducer(linesReducer, []);
   const [budget, setBudget] = useState(null); // { spent, todayCalls, block }
   const [sec, setSec] = useState(0);
@@ -93,8 +95,11 @@ export default function Talk({ userId, today, month, onPatch, onClose, onError }
     return () => { alive = false; };
   }, [pref.topic, todayText, userId, today]);
 
+  const priorRef = useRef(prior);
+  priorRef.current = prior;
   const snapshot = (model) => ({
     lines: cleanLines(linesRef.current), topic: runRef.current.topic || pref.topic, seconds: total.current.sec, cost: total.current.cost, model, day: today,
+    prior: priorRef.current?.lines || [], continuedFrom: priorRef.current?.from || null,
   });
 
   /**
@@ -140,6 +145,7 @@ export default function Talk({ userId, today, month, onPatch, onClose, onError }
       lines: cleanLines(linesRef.current), topic: c.topic,
       seconds: total.current.sec + Math.round((Date.now() - startedAt.current) / 1000),
       cost: total.current.cost + cost.current, model: s.model, day: c.today,
+      prior: priorRef.current?.lines || [], continuedFrom: priorRef.current?.from || null,
     });
   }, []);
 
@@ -206,7 +212,12 @@ export default function Talk({ userId, today, month, onPatch, onClose, onError }
    * 연결. cont = 이어서 10분 (대화록·합계 유지, 앞 대화를 지시문에 붙인다)
    * topicKey · sentences: 정리 화면에서 [🗣 발음 연습] 으로 바로 열 때
    */
-  const start = async ({ driveMode = drive, cont = false, topicKey = null, sentences = null } = {}) => {
+  /**
+   * resume(이어서 하기, 2026-10-31):
+   *   { restore: true, ...last }  정리하지 않은 대화(fa-talk-last) — 대화록을 그대로 되살려 이번 대화에 합친다(정리도 같이)
+   *   { lines, from, topic }      저장한 지난 대화 — 맥락으로만 붙이고(prior), 정리는 이번 말만. 새 기록 한 줄, continuedFrom 에 원래 id
+   */
+  const start = async ({ driveMode = drive, cont = false, topicKey = null, sentences = null, resume = null } = {}) => {
     setErr("");
     // 상한은 시작할 때마다 다시 본다 — 이어서 10분·한 번 더를 반복해도 이번 달 상한·하루 횟수를 넘지 않게
     try {
@@ -216,9 +227,29 @@ export default function Talk({ userId, today, month, onPatch, onClose, onError }
       if (!pick.model) { setErr(pick.reason); return; }
     } catch { /* 조회 실패는 막지 않는다 — 서버 쪽 한도가 최후 방어선 */ }
     let r = runRef.current;
-    if (!cont) {
+    let later = false; // 지난 대화를 잇는가 (지시문 문구가 다르다)
+    if (resume) {
+      cont = true;
+      later = true;
+      setDrive(driveMode);
+      if (resume.restore) {
+        dispatch({ type: "__restore", lines: restoreLines(resume.lines) });
+        total.current = { sec: resume.seconds || 0, cost: resume.cost || 0 };
+        const p = resume.prior?.length ? { lines: restoreLines(resume.prior), from: resume.continuedFrom || null } : null;
+        setPrior(p); priorRef.current = p;
+      } else {
+        dispatch("reset");
+        total.current = { sec: 0, cost: 0 };
+        const p = { lines: restoreLines(resume.lines), from: resume.from || null };
+        setPrior(p); priorRef.current = p;
+      }
+      r = { topic: resume.topic || pref.topic, sentences: [], entry: "" };
+      setRun(r);
+      runRef.current = r;
+    } else if (!cont) {
       dispatch("reset");
       total.current = { sec: 0, cost: 0 };
+      setPrior(null); priorRef.current = null;
       setDrive(driveMode);
       const tk = topicKey || pref.topic;
       let sent = sentences || [];
@@ -239,7 +270,9 @@ export default function Talk({ userId, today, month, onPatch, onClose, onError }
     const base = { ...pref, topic: r.topic || pref.topic };
     const coach = topicOf(base.topic).coach;
     const c = driveMode ? { ...base, ...DRIVE } : coach ? { ...base, lang: "de" } : base; // 발음 연습은 받아쓰기를 독일어로 — 다르게 들린 단어가 보이게
-    const extra = [driveMode ? DRIVE_RULE : "", cont ? continueRule(linesRef.current) : ""].filter(Boolean).join("\n\n");
+    // 이어서 할 때 앞 대화: 지난 대화(prior) + 이번에 한 말. restore 면 linesRef 에 이미 들어 있다
+    const ctxLines = [...(priorRef.current?.lines || []), ...linesRef.current];
+    const extra = [driveMode ? DRIVE_RULE : "", cont ? continueRule(ctxLines, 12, { later }) : ""].filter(Boolean).join("\n\n");
     setPhase("connecting");
     try {
       const s = await connectTalk({
@@ -257,6 +290,7 @@ export default function Talk({ userId, today, month, onPatch, onClose, onError }
         onState: (st) => st === "closed" && sess.current && finish("", true),
       });
       sess.current = s;
+      if (resume?.restore) forgetLast(); // 되살린 대화록은 이제 이번 대화에 들어 있다 — 끝나면 finish 가 다시 남긴다
       startedAt.current = Date.now();
       setSec(0);
       setMuted(false);
@@ -330,6 +364,8 @@ export default function Talk({ userId, today, month, onPatch, onClose, onError }
             onStart={() => start({ driveMode: false })}
             onDrive={() => start({ driveMode: true })}
             onResume={() => { setResult(last); setPhase("review"); }}
+            onContinueLast={() => start({ driveMode: false, resume: { restore: true, ...last } })}
+            onContinue={(row) => start({ driveMode: false, resume: { lines: row.correction?.talk?.lines || [], from: row.id, topic: row.correction?.talk?.topic || row.parts?.topic } })}
             onDropLast={forgetLast}
             userId={userId} today={today} onError={onError} todayText={todayText}
           />
@@ -362,7 +398,11 @@ export default function Talk({ userId, today, month, onPatch, onClose, onError }
           <>
             <div className="tk-topic muted tiny">{topic.icon} {topic.label} · {cfg.mode === "ptt" ? "누르고 말하기" : "자동 차례"} · {cfg.style === "teacher" ? "선생님 모드" : "흐름 유지"}</div>
             <ul className="tk-lines" ref={listRef} aria-live="polite">
-              {lines.length === 0 && <li className="tk-wait muted">AI 가 먼저 말을 걸어요…</li>}
+              {prior && prior.lines.slice(-8).map((l) => (
+                <li key={l.id} className={`tk-line prior ${l.who}`}><span lang="de" className="tk-text">{l.text}</span></li>
+              ))}
+              {prior && <li className="tk-divider muted tiny">— 지난 대화 · 여기서부터 이어서 —</li>}
+              {lines.length === 0 && <li className="tk-wait muted">{prior ? "AI 가 이어서 말을 걸어요…" : "AI 가 먼저 말을 걸어요…"}</li>}
               {lines.map((l) => (
                 <li key={l.id} className={`tk-line ${l.who}`}>
                   {l.who === "me" && <span className="tk-who">인식된 내 말</span>}
@@ -443,7 +483,8 @@ export default function Talk({ userId, today, month, onPatch, onClose, onError }
             result={result} userId={userId} today={today} month={month}
             onSaved={() => { forgetLast(); onPatch({ speak: true }); }}
             onDiscard={() => { forgetLast(); onClose(); }}
-            onAgain={() => { forgetLast(); setResult(null); setDrive(false); setRun({ topic: null, sentences: [] }); setPhase("setup"); }}
+            onAgain={() => { forgetLast(); setResult(null); setDrive(false); setPrior(null); setRun({ topic: null, sentences: [], entry: "" }); setPhase("setup"); }}
+            onContinue={() => start({ driveMode: false, resume: { lines: [...(result.prior || []), ...result.lines], from: result.continuedFrom || null, topic: result.topic } })}
             onPron={(sents) => { forgetLast(); setResult(null); start({ driveMode: false, topicKey: "aussprache", sentences: sents }); }}
             onClose={onClose} onError={onError}
           />
@@ -454,7 +495,7 @@ export default function Talk({ userId, today, month, onPatch, onClose, onError }
 }
 
 // ── ① 고르기 ─────────────────────────────────────────────────────────────────
-function Setup({ pref, savePref, budget, last, connecting, onStart, onDrive, onResume, onDropLast, userId, today, onError, todayText }) {
+function Setup({ pref, savePref, budget, last, connecting, onStart, onDrive, onResume, onContinueLast, onContinue, onDropLast, userId, today, onError, todayText }) {
   const ok = rtSupported();
   const [dropArmed, setDropArmed] = useState(false);
   const canStart = ok && !connecting && !!budget && !budget.block;
@@ -475,6 +516,7 @@ function Setup({ pref, savePref, budget, last, connecting, onStart, onDrive, onR
               {dropArmed ? "정말 버리기" : "버리기"}
             </button>
             <button className="btn small" onClick={onResume}>이어서 정리</button>
+            <button className="btn small primary" disabled={!canStart} onClick={onContinueLast}>▶ 이어서 대화</button>
           </span>
         </div>
       )}
@@ -619,7 +661,7 @@ function Setup({ pref, savePref, budget, last, connecting, onStart, onDrive, onR
         </button>
       </div>
 
-      <PastTalks userId={userId} today={today} onError={onError} />
+      <PastTalks userId={userId} today={today} onError={onError} onContinue={canStart ? onContinue : null} />
     </section>
   );
 }

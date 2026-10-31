@@ -117,3 +117,7 @@
   border: 1px solid var(--border); background: transparent; color: var(--muted); cursor: pointer; vertical-align: middle;
 }
 .tk-mis.on { border-color: var(--red); color: var(--red); font-weight: 700; }
+
+/* 이어서 하기 — 지난 대화는 흐리게, 구분선 아래부터 이번 */
+.tk-line.prior { opacity: 0.55; }
+.tk-divider { align-self: center; padding: 4px 0; list-style: none; }
