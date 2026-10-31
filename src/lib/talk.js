@@ -42,6 +42,12 @@ export const TOPICS = [
     scene: "Freies Gespräch. Der Lernende bestimmt das Thema.",
     first: "Frag ihn, worüber er heute sprechen möchte.",
   },
+  {
+    // 🗣 발음 연습 (2026-10-31) — 대화가 아니라 코칭. 지시문은 coachRules 가 통째로 바꾼다
+    key: "aussprache", icon: "🗣", label: "발음 연습", coach: true,
+    scene: "Aussprachetraining. Du bist ein geduldiger Aussprache-Coach.",
+    first: "Begrüße ihn ganz kurz und sprich den ersten Übungssatz vor.",
+  },
 ];
 export const topicOf = (key) => TOPICS.find((t) => t.key === key) || TOPICS[0];
 
@@ -135,11 +141,43 @@ const TEACHER_RULES = [
     "(„잘 못 알아들었어요. 독일어로 한 번 더 말해 줄래요?“) oder rate, was er meinte, und frag, ob das stimmt.",
 ];
 
+// 한국어 화자가 독일어에서 자주 틀리는 소리 — 코치가 무엇을 들어야 하는지
+const KOREAN_PITFALLS =
+  "Typische Probleme koreanischer Sprecher, auf die du besonders hörst: " +
+  "ü/ö (Lippen runden, nicht „이/에“), ä vs. e, lange vs. kurze Vokale (Staat/Stadt), " +
+  "ich-Laut [ç] vs. ach-Laut [x] vs. „sch“, r (Zäpfchen-R) vs. l, vokalisiertes -er am Ende („Fahrer“ → [ˈfaːʁɐ]), " +
+  "f vs. p, w [v] vs. b, z [ts] vs. s, Auslautverhärtung (Rad → [t]), " +
+  "eingeschobene Vokale in Konsonantengruppen („Strasse“ nicht „스트라세“ mit 으), Wortakzent (meist erste Silbe).";
+
+/** 발음 연습 지시문 — sentences: 연습할 문장(없으면 AI 가 고른다) */
+function coachRules(sentences) {
+  const list = (sentences || []).map((s) => String(s || "").trim()).filter(Boolean).slice(0, 10);
+  return [
+    "- Ablauf pro Satz: (1) Sprich den Satz langsam und deutlich vor. (2) Er spricht nach. " +
+      "(3) Hör genau auf seine AUSSPRACHE (nicht auf Grammatik). Wenn alles gut verständlich war: kurz loben und zum nächsten Satz. " +
+      "(4) Sonst: nenne höchstens ZWEI konkrete Wörter/Laute, die anders klangen. Erkläre auf KOREANISCH in einem Satz, wie man den Laut bildet " +
+      "(Mund-, Lippen-, Zungenstellung, z. B. „ü는 입술을 ‘우’처럼 동그랗게 하고 ‘이’ 소리를 내요“), sprich nur das Wort zwei Mal langsam vor und lass ihn das Wort, dann den ganzen Satz wiederholen.",
+    "- Pro Satz höchstens drei Versuche, dann weiter – auch wenn es noch nicht perfekt ist. Sei ehrlich: lobe nicht, was falsch klang.",
+    `- ${KOREAN_PITFALLS}`,
+    "- Bewerte keinen Akzent an sich – Ziel ist, dass ein Deutscher ihn mühelos versteht.",
+    "- Wenn er auf Koreanisch fragt, antworte kurz auf Koreanisch.",
+    list.length
+      ? `- Übe diese Sätze in dieser Reihenfolge (seine eigenen Lernsätze):\n${list.map((s, i) => `  ${i + 1}. ${s}`).join("\n")}\n  Danach eigene kurze Alltagssätze aus der Lieferarbeit mit denselben schwierigen Lauten.`
+      : "- Wähle selbst kurze Alltagssätze aus der Lieferarbeit (Klingel, Treppe, Pfand, Unterschrift …), die schwierige Laute enthalten. Steigere langsam die Länge.",
+  ];
+}
+
+// 일반 대화 중 "발음도 교정" (2026-10-31)
+const PRON_RULE =
+  "- Achte auch auf die AUSSPRACHE. Wenn ein Wort so ausgesprochen wird, dass man es schwer versteht, oder typisch falsch klingt, " +
+  "sprich das Wort kurz richtig und langsam vor, gib einen koreanischen Ein-Satz-Tipp zur Mundstellung und lass ihn es einmal nachsprechen – danach normal weiter. " +
+  "Höchstens ein Aussprache-Hinweis pro Antwort. " + KOREAN_PITFALLS;
+
 /**
  * Realtime 모델에게 줄 지시문. 서버(api/talk-token.js)가 그대로 세션에 넣는다.
  * 요구사항 1·3·5: 한국인 학습자 · 한국어 섞어 말해도 됨 · 대화 중엔 흐름 유지(style "flow") 또는 바로 교정(style "teacher").
  */
-export function talkInstructions(topicKey, { month = 1, style = "flow", tone = "freundlich", extra = "" } = {}) {
+export function talkInstructions(topicKey, { month = 1, style = "flow", tone = "freundlich", pron = false, sentences = [], extra = "" } = {}) {
   const t = topicOf(topicKey);
   const level = month <= 2 ? "B1" : month <= 4 ? "B1+/B2" : "B2";
   return [
@@ -151,7 +189,7 @@ export function talkInstructions(topicKey, { month = 1, style = "flow", tone = "
     "Regeln:",
     `- Sprich Deutsch, natürlich und deutlich, auf Niveau ${level}. Kurze Antworten: 1–3 Sätze, dann eine Rückfrage, damit er viel spricht.`,
     `- Tonfall: ${toneOf(tone).rule}`,
-    ...(style === "teacher" ? TEACHER_RULES : FLOW_RULES),
+    ...(t.coach ? coachRules(sentences) : [...(style === "teacher" ? TEACHER_RULES : FLOW_RULES), ...(pron ? [PRON_RULE] : [])]),
     "- Wenn er mitten im deutschen Satz ein koreanisches Wort benutzt (z. B. „Ich möchte 소포 abholen“), " +
       "nenne kurz das deutsche Wort mit Artikel („소포 – das Paket.“) und mach dann normal weiter.",
     "- Wenn er auf Koreanisch fragt, wie man etwas sagt, antworte ganz kurz auf Koreanisch mit dem deutschen Ausdruck und kehre dann zum Deutschen zurück. Erklärungen immer auf Koreanisch.",
@@ -315,8 +353,11 @@ ${linesToText(lines)}
   ],
   "phrases": [  // 대화에서 나온 표현 중 B1→B2 학습자가 외워 두면 좋은 것, 최대 5개
     { "de": 독일어 문장 (짧게, 그대로 쓸 수 있게), "ko": 한국어 뜻, "note": 언제 쓰는지 한국어 한 줄 }
+  ],
+  "pron": [  // 발음 — KI 가 발음을 지적한 단어, 또는 ICH 의 인식된 말이 KI 가 내준 문장과 달라 발음이 다르게 들린 것으로 보이는 단어. 최대 6개
+    { "word": 독일어 단어, "heard": 인식된 모양(있으면), "issue": 어떤 소리가 문제였는지 한국어 한 줄, "tip": 입 모양·혀 위치 팁 한국어 한 줄 }
   ]
-}
+}${topicLabel === "발음 연습" ? "\n이번은 발음 연습이었다 — fixes·korean 은 비워도 되고, pron 을 중심으로." : ""}
 없으면 빈 배열. ICH 가 거의 말하지 않았으면 summary 에 그렇게 쓰고 나머지는 빈 배열.`;
 }
 
@@ -349,7 +390,10 @@ export function parseReview(text) {
   const phrases = arr(raw.phrases)
     .map((p) => ({ de: str(p?.de), ko: str(p?.ko), note: str(p?.note) }))
     .filter((p) => p.de);
-  return { summary: str(raw.summary), fixes, korean, phrases };
+  const pron = arr(raw.pron)
+    .map((p) => ({ word: str(p?.word), heard: str(p?.heard), issue: str(p?.issue), tip: str(p?.tip) }))
+    .filter((p) => p.word);
+  return { summary: str(raw.summary), fixes, korean, phrases, pron };
 }
 
 // ── 저장 ─────────────────────────────────────────────────────────────────────
@@ -395,6 +439,7 @@ export function talkEntry({ day, month, topic, lines, review, picked, seconds, c
         lines: cleanLines(lines).map(({ who, text }) => ({ who, text })),
         summary: review.summary,
         fixes, korean: review.korean.filter((k, i) => picked.korean?.[i]), phrases: review.phrases.filter((p, i) => picked.phrases?.[i]),
+        pron: review.pron || [],
       },
       progress: {},
     },

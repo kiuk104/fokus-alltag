@@ -3,6 +3,8 @@
 //   틀린 문장   내 말(틀린 곳 취소선) → 고친 문장 + 한국어 설명      → 오답 노트(며칠 뒤 다시 고쳐 쓰기)
 //   한국어로 막힌 곳  “소포” → das Paket + 그 말을 넣은 문장
 //   새 표현     대화에서 나온, 외워 둘 만한 문장
+//   발음        AI 가 지적했거나 다르게 들린 단어 + 입 모양 팁 (보기만 — 기록에는 남는다)
+//   저장한 뒤 [🗣 이 문장들로 발음 연습] → 같은 화면에서 발음 코치 대화로.
 //   [Fokus DE 로도 보내기] 를 켜 두면 고른 문장이 DE 단어장 Alltag → Karten 복습 · 오늘 🔴 3문장 꺼내기로 간다.
 
 import { useEffect, useMemo, useState } from "react";
@@ -17,7 +19,7 @@ import {
 
 const TALK_TAG = "Sprechen";
 
-export default function TalkReview({ result, userId, today, month, onSaved, onDiscard, onAgain, onClose, onError }) {
+export default function TalkReview({ result, userId, today, month, onSaved, onDiscard, onAgain, onPron, onClose, onError }) {
   const [review, setReview] = useState(null);
   const [picked, setPicked] = useState(null);
   const [state, setState] = useState("loading"); // loading | ready | empty | failed | saving | saved
@@ -89,7 +91,7 @@ export default function TalkReview({ result, userId, today, month, onSaved, onDi
           onError("대화는 저장했지만 DE 로 보내지 못했어요: " + e.message);
         }
       }
-      setSaved({ fixes: row.correction?.data?.b1?.fixes?.length || 0, sent });
+      setSaved({ fixes: row.correction?.data?.b1?.fixes?.length || 0, sent, rows: rows.map((r) => r.de) });
       setState("saved");
       onSaved();
     } catch (e) {
@@ -165,6 +167,7 @@ export default function TalkReview({ result, userId, today, month, onSaved, onDi
         </ul>
         <div className="cr-actions">
           {saved.sent > 0 && KARTEN_URL && <button className="link-btn" onClick={() => openApp(KARTEN_URL)}>외우기 <b>Karten</b> ↗</button>}
+          {saved.rows.length > 0 && onPron && <button className="btn" onClick={() => onPron(saved.rows)}>🗣 이 문장들로 발음 연습</button>}
           <button className="btn" onClick={onAgain}>한 번 더</button>
           <button className="btn primary" onClick={onClose}>닫기</button>
         </div>
@@ -173,7 +176,7 @@ export default function TalkReview({ result, userId, today, month, onSaved, onDi
   }
 
   // ready | saving
-  const { summary, fixes, korean, phrases } = review;
+  const { summary, fixes, korean, phrases, pron = [] } = review;
   return (
     <section className="tk-review">
       {summary && <p className="cr-lead tk-summary">{summary}</p>}
@@ -243,7 +246,29 @@ export default function TalkReview({ result, userId, today, month, onSaved, onDi
         </>
       )}
 
-      {!fixes.length && !korean.length && !phrases.length && (
+      {pron.length > 0 && (
+        <>
+          <div className="cr-label">발음 <span className="muted">— 다르게 들린 단어</span></div>
+          <ul className="tk-items tk-pron">
+            {pron.map((p, i) => (
+              <li key={i}>
+                <div className="tk-item">
+                  <p className="tk-better" lang="de">
+                    {p.word}
+                    <button className="tk-play" onClick={() => speakText(p.word)} aria-label="발음 듣기">🔊</button>
+                    <button className="tk-play" onClick={() => speakText(p.word, { rate: 0.7 })} aria-label="천천히 듣기">🐢</button>
+                  </p>
+                  {p.heard && p.heard !== p.word && <p className="muted tiny" lang="de">인식된 말: {p.heard}</p>}
+                  {p.issue && <p className="tiny">{p.issue}</p>}
+                  {p.tip && <p className="muted tiny">💡 {p.tip}</p>}
+                </div>
+              </li>
+            ))}
+          </ul>
+        </>
+      )}
+
+      {!fixes.length && !korean.length && !phrases.length && !pron.length && (
         <div className="notice soft">고칠 곳이 거의 없었어요. 대화 기록만 저장할 수 있어요.</div>
       )}
 
@@ -258,7 +283,7 @@ export default function TalkReview({ result, userId, today, month, onSaved, onDi
       <div className="cr-actions">
         <button className="btn" onClick={onDiscard} disabled={state === "saving"}>저장 안 함</button>
         <button className="btn primary" onClick={save} disabled={state === "saving"}>
-          {state === "saving" ? "저장하는 중…" : `고른 ${total}개 저장`}
+          {state === "saving" ? "저장하는 중…" : total ? `고른 ${total}개 저장` : "기록 저장"}
         </button>
       </div>
     </section>

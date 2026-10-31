@@ -92,5 +92,6 @@
 .tk-right { color: var(--green); }
 .tk-type { display: inline-block; font-size: 11px; padding: 0 7px; border-radius: 999px; border: 1px solid var(--border); margin-right: 4px; }
 .tk-play { border: none; background: none; font-size: 15px; margin-left: 6px; cursor: pointer; vertical-align: middle; }
+.tk-pron li { border-left: 3px solid var(--blue); }
 .tk-toggle { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; font-size: 14px; margin-top: 6px; }
 .tk-transcript { margin-top: 4px; }

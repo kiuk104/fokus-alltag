@@ -2,8 +2,9 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 import {
   applyEvent, cleanLines, linesToText, myLines, rtCost, transcribeCost, sumUsage, parseReview, keepRows, talkEntry,
-  defaultPicked, talkInstructions, TOPICS, clock,
+  defaultPicked, talkInstructions, TOPICS, clock, reviewPrompt,
 } from "./talk.js";
+const reviewPromptFor = (label) => reviewPrompt([{ who: "me", text: "Hallo" }], { topicLabel: label });
 import { collectItems } from "./drill.js";
 import { keptSentences } from "./recall.js";
 
@@ -148,4 +149,25 @@ test("대화록: 지운 내 말(추임새)은 화면에서도 빠진다", () => 
     { type: "conversation.item.deleted", item_id: "u1" },
   ]);
   assert.equal(lines.length, 0);
+});
+
+test("발음: 코치 주제는 지시문을 통째로 바꾸고, 내 문장을 순서대로 넣는다", () => {
+  const s = talkInstructions("aussprache", { style: "teacher", sentences: ["Ich habe das Paket.", "  ", "Wo ist der Eingang?"] });
+  assert.match(s, /Aussprache-Coach/);
+  assert.match(s, /1\. Ich habe das Paket\.\n  2\. Wo ist der Eingang\?/);
+  assert.doesNotMatch(s, /LEHRER-MODUS/); // 코치에서는 문법 교정 규칙을 안 쓴다
+  assert.match(talkInstructions("aussprache"), /Wähle selbst kurze Alltagssätze/);
+  // 일반 대화의 "발음도 교정"
+  assert.match(talkInstructions("tag", { pron: true }), /Achte auch auf die AUSSPRACHE/);
+  assert.doesNotMatch(talkInstructions("tag"), /Achte auch auf die AUSSPRACHE/);
+});
+
+test("발음: 정리 결과의 pron 을 읽고 기록에 남긴다", () => {
+  const r = parseReview('{"summary":"","fixes":[],"korean":[],"phrases":[],"pron":[{"word":"Tür","heard":"Tier","issue":"ü 가 이로 들림","tip":"입술을 우처럼"},{"word":""}]}');
+  assert.equal(r.pron.length, 1);
+  assert.equal(r.pron[0].heard, "Tier");
+  const e = talkEntry({ day: "d", month: 1, topic: "aussprache", lines: [], review: r, picked: defaultPicked(r), seconds: 1, cost: 0, model: "m" });
+  assert.equal(e.correction.talk.pron[0].word, "Tür");
+  assert.equal(parseReview('{"fixes":[]}').pron.length, 0);
+  assert.match(reviewPromptFor("발음 연습"), /pron 을 중심으로/);
 });
