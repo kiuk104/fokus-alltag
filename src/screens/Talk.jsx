@@ -12,7 +12,7 @@ import { useCallback, useEffect, useReducer, useRef, useState } from "react";
 import { connectTalk, rtSupported } from "../lib/realtime";
 import { usageNow, pickModel, recordUsage, MONTHLY_CAP } from "../lib/ai";
 import {
-  TOPICS, STYLES, LANGS, VOICES, TONES, SPEEDS, topicOf, talkInstructions, applyEvent, cleanLines, myLines, rtCost, transcribeCost, sumUsage,
+  TOPICS, STYLES, LANGS, VOICES, TONES, SPEEDS, DRIVE, DRIVE_RULE, continueRule, topicOf, talkInstructions, applyEvent, cleanLines, myLines, rtCost, transcribeCost, sumUsage,
   TALK_MAX_MIN, TALK_WARN_MIN, clock,
 } from "../lib/talk";
 import TalkReview from "../components/TalkReview";
@@ -31,7 +31,8 @@ const linesReducer = (lines, ev) => (ev === "reset" ? [] : applyEvent(lines, ev)
 
 export default function Talk({ userId, today, month, onPatch, onClose, onError }) {
   const [pref, setPref] = useState(() => ({ topic: "tag", mode: "auto", noise: "near", style: "flow", lang: "de", voice: "marin", tone: "freundlich", speed: "normal", ...readJson(PREF_KEY, {}) }));
-  const [phase, setPhase] = useState("setup"); // setup | connecting | live | review
+  const [phase, setPhase] = useState("setup"); // setup | connecting | live | paused | review
+  const [drive, setDrive] = useState(false); // 🚗 운전 모드 — 이번 대화에만
   const [lines, dispatch] = useReducer(linesReducer, []);
   const [budget, setBudget] = useState(null); // { spent, todayCalls, block }
   const [sec, setSec] = useState(0);
@@ -43,9 +44,13 @@ export default function Talk({ userId, today, month, onPatch, onClose, onError }
   const [result, setResult] = useState(null); // { lines, topic, seconds, cost, model } — 정리로 넘길 것
   const [last] = useState(() => readJson(LAST_KEY, null));
 
+  // 이번 대화의 실제 설정 — 운전 모드면 운전용 값을 덮어쓴다(저장된 설정은 그대로)
+  const cfg = drive ? { ...pref, ...DRIVE } : pref;
+
   const sess = useRef(null);
-  const usages = useRef([]); // response.done 의 usage 들
-  const cost = useRef(0);
+  const usages = useRef([]); // 이번 구간의 response.done usage 들
+  const cost = useRef(0); // 이번 구간 비용 (구간 = 한 번 연결, 최대 10분)
+  const total = useRef({ sec: 0, cost: 0 }); // 이어서 한 구간까지 합친 것
   const startedAt = useRef(0);
   const linesRef = useRef(lines);
   linesRef.current = lines;
@@ -63,21 +68,37 @@ export default function Talk({ userId, today, month, onPatch, onClose, onError }
     return () => { alive = false; };
   }, [userId]);
 
-  // 대화를 끝낸다 — 비용 기록 · 대화록 보관 · 정리로
-  const finish = useCallback((reason = "") => {
+  const snapshot = (model) => ({
+    lines: cleanLines(linesRef.current), topic: pref.topic, seconds: total.current.sec, cost: total.current.cost, model, day: today,
+  });
+
+  /**
+   * 구간을 끝낸다 — 비용 기록(구간마다 한 줄) · 대화록 보관.
+   * pause 면 "이어서 10분" 을 기다리고, 아니면 정리로.
+   */
+  const finish = useCallback((reason = "", pause = false) => {
     const s = sess.current;
     if (!s) return;
     sess.current = null;
     s.close();
     try { wake.current?.release(); } catch { /* 이미 풀림 */ }
-    const seconds = Math.round((Date.now() - startedAt.current) / 1000);
-    const total = cost.current;
-    recordUsage(userId, { provider: "openai", model: s.model, kind: "alltag-talk", usage: sumUsage(usages.current), cost: total });
-    const r = { lines: cleanLines(linesRef.current), topic: pref.topic, seconds, cost: total, model: s.model, day: today };
+    total.current.sec += Math.round((Date.now() - startedAt.current) / 1000);
+    total.current.cost += cost.current;
+    recordUsage(userId, { provider: "openai", model: s.model, kind: "alltag-talk", usage: sumUsage(usages.current), cost: cost.current });
+    const r = snapshot(s.model);
     writeJson(LAST_KEY, r);
-    setResult(r);
-    setPhase("review");
+    setAiTalking(false);
+    setHearing(false);
+    setHolding(false);
+    if (pause && r.lines.length) {
+      setResult(r);
+      setPhase("paused");
+    } else {
+      setResult(r);
+      setPhase("review");
+    }
     if (reason) setErr(reason);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [userId, pref.topic, today]);
 
   // 닫거나 화면을 떠나면 연결을 끊는다 (돈이 계속 나가지 않게). 값은 ref 로 — 의존값이 바뀔 때마다 끊기면 안 된다
@@ -90,16 +111,19 @@ export default function Talk({ userId, today, month, onPatch, onClose, onError }
     s.close();
     const c = ctx.current;
     recordUsage(c.userId, { provider: "openai", model: s.model, kind: "alltag-talk", usage: sumUsage(usages.current), cost: cost.current });
-    writeJson(LAST_KEY, { lines: cleanLines(linesRef.current), topic: c.topic, seconds: 0, cost: cost.current, model: s.model, day: c.today });
+    writeJson(LAST_KEY, {
+      lines: cleanLines(linesRef.current), topic: c.topic, seconds: total.current.sec,
+      cost: total.current.cost + cost.current, model: s.model, day: c.today,
+    });
   }, []);
 
-  // 시계 + 10분 상한
+  // 시계 + 10분 상한 — 끝나면 정리로 바로 가지 않고 "이어서 10분" 을 기다린다
   useEffect(() => {
     if (phase !== "live") return;
     const id = setInterval(() => {
       const s = (Date.now() - startedAt.current) / 1000;
       setSec(s);
-      if (s >= TALK_MAX_MIN * 60) finish(`${TALK_MAX_MIN}분이 지나서 대화를 마쳤어요.`);
+      if (s >= TALK_MAX_MIN * 60) finish("", true);
     }, 500);
     return () => clearInterval(id);
   }, [phase, finish]);
@@ -113,11 +137,11 @@ export default function Talk({ userId, today, month, onPatch, onClose, onError }
   // Esc 로 닫기 (대화 중이면 끝내기)
   useEffect(() => {
     const k = (e) => {
-      if (e.key === "Escape") { if (sess.current) finish(); else onClose(); }
+      if (e.key === "Escape") { if (sess.current) finish(); else if (phase !== "paused") onClose(); }
     };
     window.addEventListener("keydown", k);
     return () => window.removeEventListener("keydown", k);
-  }, [finish, onClose]);
+  }, [finish, onClose, phase]);
 
   const onEvent = useCallback((ev) => {
     dispatch(ev);
@@ -141,23 +165,31 @@ export default function Talk({ userId, today, month, onPatch, onClose, onError }
     }
   }, []);
 
-  const start = async () => {
+  /** 연결. cont = 이어서 10분 (대화록·합계 유지, 앞 대화를 지시문에 붙인다) */
+  const start = async ({ driveMode = drive, cont = false } = {}) => {
     setErr("");
-    dispatch("reset");
+    if (!cont) {
+      dispatch("reset");
+      total.current = { sec: 0, cost: 0 };
+      setDrive(driveMode);
+    }
     usages.current = [];
     cost.current = 0;
+    const c = driveMode ? { ...pref, ...DRIVE } : pref;
+    const extra = [driveMode ? DRIVE_RULE : "", cont ? continueRule(linesRef.current) : ""].filter(Boolean).join("\n\n");
     setPhase("connecting");
     try {
       const s = await connectTalk({
-        instructions: talkInstructions(pref.topic, { month, style: pref.style, tone: pref.tone }),
-        voice: pref.voice,
-        speed: SPEEDS.find((s) => s.key === pref.speed)?.value || 1,
-        mode: pref.mode,
-        noise: pref.noise,
-        lang: pref.lang,
+        instructions: talkInstructions(c.topic, { month, style: c.style, tone: c.tone, extra }),
+        voice: c.voice,
+        speed: SPEEDS.find((x) => x.key === c.speed)?.value || 1,
+        mode: c.mode,
+        noise: c.noise,
+        lang: c.lang,
         onEvent,
         onError: setErr,
-        onState: (st) => st === "closed" && sess.current && finish(),
+        // 신호가 끊기면 정리로 가지 않고 "이어서" 를 기다린다 — 배송 중엔 터널·지하 주차장이 흔하다
+        onState: (st) => st === "closed" && sess.current && finish("", true),
       });
       sess.current = s;
       startedAt.current = Date.now();
@@ -167,7 +199,7 @@ export default function Talk({ userId, today, month, onPatch, onClose, onError }
       try { wake.current = await navigator.wakeLock?.request("screen"); } catch { /* 지원 안 함 */ }
     } catch (e) {
       setErr(e.message);
-      setPhase("setup");
+      setPhase(cont ? "paused" : "setup");
     }
   };
 
@@ -183,45 +215,66 @@ export default function Talk({ userId, today, month, onPatch, onClose, onError }
     setHolding(false);
   };
 
+  const toggleMute = () => { const m = !muted; setMuted(m); sess.current?.mute(m); };
+
   // 누르고 말하기 — 손가락 · 마우스 · 스페이스바
   const down = (e) => { e.preventDefault(); if (holding) return; setHolding(true); sess.current?.press(); };
   const up = () => { if (!holding) return; setHolding(false); sess.current?.release(); };
   useEffect(() => {
-    if (phase !== "live" || pref.mode !== "ptt") return;
+    if (phase !== "live" || cfg.mode !== "ptt") return;
     const kd = (e) => { if (e.code === "Space" && !e.repeat && !holding) { e.preventDefault(); setHolding(true); sess.current?.press(); } };
     const ku = (e) => { if (e.code === "Space") { e.preventDefault(); setHolding(false); sess.current?.release(); } };
     window.addEventListener("keydown", kd);
     window.addEventListener("keyup", ku);
     return () => { window.removeEventListener("keydown", kd); window.removeEventListener("keyup", ku); };
-  }, [phase, pref.mode, holding]);
+  }, [phase, cfg.mode, holding]);
 
   const topic = topicOf(pref.topic);
   const warn = phase === "live" && sec >= TALK_WARN_MIN * 60;
+  const status = aiTalking ? "ai" : holding || hearing ? "hear" : muted ? "muted" : "idle";
 
   return (
-    <div className="lsn tk" role="dialog" aria-label="실시간 대화">
+    <div className={`lsn tk ${drive && (phase === "live" || phase === "paused") ? "tk-drive-on" : ""}`} role="dialog" aria-label="실시간 대화">
       <div className="lsn-inner">
         <header className="lsn-head">
           <div className="lsn-src">
-            <b>🎙 실시간 대화</b>{" "}
-            {phase === "live" && <span className={`muted tiny ${warn ? "tk-warn" : ""}`}>{clock(sec)} / {TALK_MAX_MIN}:00 · ${cost.current.toFixed(3)}</span>}
+            <b>{drive ? "🚗 운전 모드" : "🎙 실시간 대화"}</b>{" "}
+            {phase === "live" && !drive && <span className={`muted tiny ${warn ? "tk-warn" : ""}`}>{clock(sec)} / {TALK_MAX_MIN}:00 · ${(total.current.cost + cost.current).toFixed(3)}</span>}
           </div>
-          <button className="icon-btn" onClick={() => (sess.current ? finish() : onClose())} aria-label="닫기">✕</button>
+          <button className="icon-btn" onClick={() => (sess.current ? finish() : phase === "paused" ? setPhase("review") : onClose())} aria-label="닫기">✕</button>
         </header>
 
         {err && <div className="notice error" onClick={() => setErr("")}>{err}</div>}
 
-        {(phase === "setup" || phase === "connecting") && (
+        {(phase === "setup" || (phase === "connecting" && !result)) && (
           <Setup
             pref={pref} savePref={savePref} budget={budget} last={last} connecting={phase === "connecting"}
-            onStart={start}
+            onStart={() => start({ driveMode: false })}
+            onDrive={() => start({ driveMode: true })}
             onResume={() => { setResult(last); setPhase("review"); }}
           />
         )}
 
-        {phase === "live" && (
+        {phase === "live" && drive && (
+          <section className="tk-drive">
+            <div className={`tk-orb ${status}`} aria-live="polite">
+              <span className="tk-orb-icon" aria-hidden>{status === "ai" ? "🔊" : status === "hear" ? "🎤" : status === "muted" ? "🔇" : "💬"}</span>
+              <span className="tk-orb-text">
+                {status === "ai" ? "AI 가 말하는 중" : status === "hear" ? "듣는 중" : status === "muted" ? "마이크 꺼짐" : "말하세요"}
+              </span>
+            </div>
+            <div className={`tk-drive-clock ${warn ? "tk-warn" : ""}`}>{clock(TALK_MAX_MIN * 60 - sec)}</div>
+            <p className="tk-drive-note">폰은 거치대에 두고, 손대지 마세요. 대답하기 어려우면 그냥 조용히 있어도 기다려요.</p>
+            <div className="tk-drive-btns">
+              <button className="tk-big soft" onClick={toggleMute}>{muted ? "🎤 마이크 켜기" : "🔇 마이크 끄기"}</button>
+              <button className="tk-big" onClick={() => finish()}>■ 끝내기</button>
+            </div>
+          </section>
+        )}
+
+        {phase === "live" && !drive && (
           <>
-            <div className="tk-topic muted tiny">{topic.icon} {topic.label} · {pref.mode === "ptt" ? "누르고 말하기" : "자동 차례"} · {pref.style === "teacher" ? "선생님 모드" : "흐름 유지"}</div>
+            <div className="tk-topic muted tiny">{topic.icon} {topic.label} · {cfg.mode === "ptt" ? "누르고 말하기" : "자동 차례"} · {cfg.style === "teacher" ? "선생님 모드" : "흐름 유지"}</div>
             <ul className="tk-lines" ref={listRef} aria-live="polite">
               {lines.length === 0 && <li className="tk-wait muted">AI 가 먼저 말을 걸어요…</li>}
               {lines.map((l) => (
@@ -235,10 +288,10 @@ export default function Talk({ userId, today, month, onPatch, onClose, onError }
             </ul>
 
             <div className="tk-status muted tiny">
-              {aiTalking ? "🔊 AI 가 말하는 중" : holding ? "🎤 듣는 중 — 다 말하면 손을 떼세요" : hearing ? "🎤 듣는 중" : pref.mode === "ptt" ? "버튼을 누르고 있는 동안 말해요" : muted ? "마이크 꺼짐" : "말하세요 — 잠깐 멈춰도 기다려 줘요"}
+              {aiTalking ? "🔊 AI 가 말하는 중" : holding ? "🎤 듣는 중 — 다 말하면 손을 떼세요" : hearing ? "🎤 듣는 중" : cfg.mode === "ptt" ? "버튼을 누르고 있는 동안 말해요" : muted ? "마이크 꺼짐" : "말하세요 — 잠깐 멈춰도 기다려 줘요"}
             </div>
 
-            {pref.mode === "ptt" ? (
+            {cfg.mode === "ptt" ? (
               <button
                 className={`tk-ptt ${holding ? "on" : ""}`}
                 onPointerDown={down} onPointerUp={up} onPointerLeave={up} onPointerCancel={up}
@@ -247,7 +300,7 @@ export default function Talk({ userId, today, month, onPatch, onClose, onError }
                 {holding ? "말하는 중…" : "누르고 말하기"}
               </button>
             ) : (
-              <button className={`tk-ptt soft ${muted ? "" : "on"}`} onClick={() => { const m = !muted; setMuted(m); sess.current?.mute(m); }}>
+              <button className={`tk-ptt soft ${muted ? "" : "on"}`} onClick={toggleMute}>
                 {muted ? "🎤 마이크 켜기" : "⏸ 잠깐 마이크 끄기"}
               </button>
             )}
@@ -255,27 +308,41 @@ export default function Talk({ userId, today, month, onPatch, onClose, onError }
             <div className="tk-row">
               <div className="tk-switches">
                 <div className="chips tk-chips">
-                  <button className={`chip ${pref.mode === "auto" ? "on" : ""}`} onClick={() => setMode("auto")}>자동</button>
-                  <button className={`chip ${pref.mode === "ptt" ? "on" : ""}`} onClick={() => setMode("ptt")}>누르고 말하기</button>
+                  <button className={`chip ${cfg.mode === "auto" ? "on" : ""}`} onClick={() => setMode("auto")}>자동</button>
+                  <button className={`chip ${cfg.mode === "ptt" ? "on" : ""}`} onClick={() => setMode("ptt")}>누르고 말하기</button>
                 </div>
                 <div className="chips tk-chips">
                   {STYLES.map((s) => (
-                    <button key={s.key} className={`chip ${pref.style === s.key ? "on" : ""}`} onClick={() => setStyle(s.key)}>{s.label}</button>
+                    <button key={s.key} className={`chip ${cfg.style === s.key ? "on" : ""}`} onClick={() => setStyle(s.key)}>{s.label}</button>
                   ))}
                 </div>
               </div>
               <button className="btn primary" onClick={() => finish()}>끝내고 정리하기</button>
             </div>
-            {warn && <p className="tk-warn tiny">1분 뒤 저절로 끝나요.</p>}
+            {warn && <p className="tk-warn tiny">1분 뒤 이번 10분이 끝나요. 이어서 할 수 있어요.</p>}
           </>
         )}
+
+        {phase === "paused" && result && (
+          <section className="tk-paused">
+            <div className="rc-big">{drive ? "🚗 " : ""}잠깐 멈춤</div>
+            <p className="cr-lead">
+              지금까지 {clock(result.seconds)} · 내 말 {myLines(result.lines).length}줄.
+              {drive ? " 차를 세운 뒤에 누르세요." : ""} 이어서 하면 AI 가 앞 대화를 기억하고 계속해요.
+            </p>
+            <button className="tk-big wide" onClick={() => start({ driveMode: drive, cont: true })}>▶ 이어서 {TALK_MAX_MIN}분</button>
+            <button className="tk-big soft wide" onClick={() => setPhase("review")}>끝내고 정리하기</button>
+          </section>
+        )}
+
+        {phase === "connecting" && result && <p className="muted pad">다시 연결하는 중…</p>}
 
         {phase === "review" && result && (
           <TalkReview
             result={result} userId={userId} today={today} month={month}
             onSaved={() => { writeJson(LAST_KEY, null); onPatch({ speak: true }); }}
             onDiscard={() => { writeJson(LAST_KEY, null); onClose(); }}
-            onAgain={() => { writeJson(LAST_KEY, null); setResult(null); setPhase("setup"); }}
+            onAgain={() => { writeJson(LAST_KEY, null); setResult(null); setDrive(false); setPhase("setup"); }}
             onClose={onClose} onError={onError}
           />
         )}
@@ -285,7 +352,7 @@ export default function Talk({ userId, today, month, onPatch, onClose, onError }
 }
 
 // ── ① 고르기 ─────────────────────────────────────────────────────────────────
-function Setup({ pref, savePref, budget, last, connecting, onStart, onResume }) {
+function Setup({ pref, savePref, budget, last, connecting, onStart, onDrive, onResume }) {
   const ok = rtSupported();
   const hasLast = last && myLines(last.lines).length > 0;
   return (
@@ -302,6 +369,16 @@ function Setup({ pref, savePref, budget, last, connecting, onStart, onResume }) 
           <button className="btn small" onClick={onResume}>이어서 정리</button>
         </div>
       )}
+
+      <div className="tk-drive-card">
+        <div>
+          <b>🚗 운전 모드</b>
+          <p className="muted tiny">손대지 않고 — 자동 차례 · 거치대 · 흐름 유지 · 차분하게 · 천천히. 화면엔 큰 상태 표시만. 주제·목소리는 아래 고른 대로.</p>
+        </div>
+        <button className="btn primary" disabled={!ok || connecting || !budget || !!budget.block} onClick={onDrive}>
+          {connecting ? "연결 중…" : "운전 모드로 시작"}
+        </button>
+      </div>
 
       <div className="cr-label">주제</div>
       <div className="tk-topics">

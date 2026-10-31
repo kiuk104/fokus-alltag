@@ -48,6 +48,36 @@
 .tk-switches { display: flex; flex-direction: column; gap: 6px; }
 .tk-warn { color: var(--red); font-weight: 700; }
 
+/* 🚗 운전 모드 — 크게, 멀리서 한눈에. 대화록은 안 보인다 */
+.tk-drive-card {
+  display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap;
+  padding: 12px 14px; border-radius: 14px; border: 1.5px solid var(--gold); background: var(--card);
+}
+.tk-drive-card > div { flex: 1; min-width: 180px; }
+.tk-drive { display: flex; flex-direction: column; align-items: center; gap: 18px; padding-top: 12px; }
+.tk-orb {
+  width: min(64vw, 260px); aspect-ratio: 1; border-radius: 50%;
+  display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 6px;
+  background: var(--card); border: 6px solid var(--border); transition: border-color 0.2s, background 0.2s;
+}
+.tk-orb.ai { border-color: var(--blue); }
+.tk-orb.hear { border-color: var(--green); animation: rc-pulse 1.2s ease-in-out infinite; }
+.tk-orb.muted { border-color: var(--red); opacity: 0.75; }
+.tk-orb-icon { font-size: 54px; line-height: 1; }
+.tk-orb-text { font-size: 22px; font-weight: 800; }
+.tk-drive-clock { font-size: 40px; font-weight: 800; font-variant-numeric: tabular-nums; letter-spacing: 1px; }
+.tk-drive-note { font-size: 13px; color: var(--muted); text-align: center; max-width: 320px; line-height: 1.5; }
+.tk-drive-btns { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; width: 100%; max-width: 420px; }
+.tk-big {
+  padding: 22px 10px; border-radius: 18px; border: none; background: var(--ink); color: var(--cream);
+  font-size: 18px; font-weight: 800; cursor: pointer;
+}
+.tk-big.soft { background: var(--card); color: var(--ink); border: 2px solid var(--border); }
+.tk-big.wide { display: block; width: 100%; max-width: 420px; margin: 0 auto; }
+.tk-paused { display: flex; flex-direction: column; gap: 12px; margin-top: 8px; }
+.tk-paused .rc-big { text-align: center; }
+.tk-paused .cr-lead { text-align: center; }
+
 /* 정리 */
 .tk-summary { padding: 10px 12px; border-radius: 12px; background: var(--card); border: 1px solid var(--border); }
 .tk-items { list-style: none; display: flex; flex-direction: column; gap: 8px; }

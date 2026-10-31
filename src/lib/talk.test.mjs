@@ -121,3 +121,16 @@ test("지시문: 주제 상황과 '대화 중 교정하지 않기'가 들어간�
   assert.match(talkInstructions("tag", { tone: "sachlich" }), /Tonfall: Sprich höflich, sachlich/);
   assert.match(talkInstructions("tag"), /Tonfall: Sprich warm/);
 });
+
+test("운전 모드 · 이어서: 짧게 말하라는 규칙, 앞 대화 끝부분만 붙인다", async () => {
+  const { DRIVE, DRIVE_RULE, continueRule } = await import("./talk.js");
+  assert.equal(DRIVE.mode, "auto"); // 누르고 말하기는 화면을 눌러야 해서 운전 중엔 안 됨
+  assert.equal(DRIVE.style, "flow");
+  assert.match(talkInstructions("tag", { extra: DRIVE_RULE }), /fährt gerade Auto/);
+  const lines = Array.from({ length: 20 }, (_, i) => ({ who: i % 2 ? "me" : "ai", text: `Satz ${i}` }));
+  const r = continueRule(lines, 4);
+  assert.match(r, /Begrüße ihn NICHT neu/);
+  assert.match(r, /KI: Satz 16\nICH: Satz 17\nKI: Satz 18\nICH: Satz 19$/);
+  assert.doesNotMatch(r, /Satz 15/);
+  assert.equal(continueRule([]), "");
+});

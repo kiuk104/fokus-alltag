@@ -84,6 +84,30 @@ export const SPEEDS = [
   { key: "normal", label: "보통", value: 1 },
 ];
 
+/**
+ * 🚗 운전 모드 (2026-10-31) — 손대지 않고 쓰는 설정을 한 번에. 저장된 설정(fa-talk-pref)은 건드리지 않고 그 대화에만 덮어쓴다.
+ * 자동 차례(누르고 말하기는 화면을 눌러야 해서 안 됨) · 거치대 · 흐름 유지(선생님은 머리를 더 쓴다) · 차분하게 · 천천히.
+ * StVO §23(1a): 운전 중 폰을 들거나 만지면 안 된다 — 거치대 + 음성만.
+ */
+export const DRIVE = { mode: "auto", noise: "far", style: "flow", tone: "ruhig", speed: "slow" };
+export const DRIVE_RULE =
+  "WICHTIG: Der Lernende fährt gerade Auto (Lieferfahrt). Halte jede Antwort besonders kurz (1–2 einfache Sätze) und stelle einfache Fragen. " +
+  "Keine Listen, keine langen Erklärungen, keine Zahlenreihen. Wenn er nicht antwortet, warte still – er muss sich vielleicht auf den Verkehr konzentrieren. " +
+  "Frag nicht nach, warum er schweigt.";
+
+/**
+ * 10분이 지나 이어서 할 때 — 앞 대화 끝부분을 새 세션 지시문에 붙인다(새 세션은 앞 대화를 모른다).
+ * 너무 길면 토큰이 매번 다시 들어가니 마지막 maxLines 줄만.
+ */
+export function continueRule(lines, maxLines = 12) {
+  const tail = cleanLines(lines).slice(-maxLines);
+  if (!tail.length) return "";
+  return (
+    "Das Gespräch läuft schon. Begrüße ihn NICHT neu und stell dich nicht vor – mach genau dort weiter, wo ihr aufgehört habt " +
+    "(kurze Brücke wie „Wo waren wir? Ach ja …“ ist okay).\nBisheriges Gespräch (Ende):\n" + linesToText(tail)
+  );
+}
+
 /** 인식 언어 — 내 말 받아쓰기 */
 export const LANGS = [
   { key: "de", label: "독일어로 고정", desc: "인식이 정확" },
