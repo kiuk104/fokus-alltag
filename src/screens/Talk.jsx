@@ -16,6 +16,7 @@ import {
   TALK_MAX_MIN, TALK_WARN_MIN, clock,
 } from "../lib/talk";
 import TalkReview from "../components/TalkReview";
+import PastTalks from "../components/PastTalks";
 import { loadEntriesRange } from "../lib/entryRepo";
 import { keptSentences } from "../lib/recall";
 import { addDays } from "../lib/program";
@@ -46,7 +47,8 @@ export default function Talk({ userId, today, month, onPatch, onClose, onError }
   const [muted, setMuted] = useState(false);
   const [err, setErr] = useState("");
   const [result, setResult] = useState(null); // { lines, topic, seconds, cost, model } — 정리로 넘길 것
-  const [last] = useState(() => readJson(LAST_KEY, null));
+  const [last, setLast] = useState(() => readJson(LAST_KEY, null)); // 정리하지 않은 대화 (시작 화면 알림)
+  const forgetLast = () => { writeJson(LAST_KEY, null); setLast(null); };
 
   // 이번 대화의 실제 설정 — 운전 모드면 운전용 값을 덮어쓴다(저장된 설정은 그대로)
   const cfg = drive ? { ...pref, ...DRIVE } : pref;
@@ -274,6 +276,8 @@ export default function Talk({ userId, today, month, onPatch, onClose, onError }
             onStart={() => start({ driveMode: false })}
             onDrive={() => start({ driveMode: true })}
             onResume={() => { setResult(last); setPhase("review"); }}
+            onDropLast={forgetLast}
+            userId={userId} today={today} onError={onError}
           />
         )}
 
@@ -362,10 +366,10 @@ export default function Talk({ userId, today, month, onPatch, onClose, onError }
         {phase === "review" && result && (
           <TalkReview
             result={result} userId={userId} today={today} month={month}
-            onSaved={() => { writeJson(LAST_KEY, null); onPatch({ speak: true }); }}
-            onDiscard={() => { writeJson(LAST_KEY, null); onClose(); }}
-            onAgain={() => { writeJson(LAST_KEY, null); setResult(null); setDrive(false); setRun({ topic: null, sentences: [] }); setPhase("setup"); }}
-            onPron={(sents) => { writeJson(LAST_KEY, null); setResult(null); start({ driveMode: false, topicKey: "aussprache", sentences: sents }); }}
+            onSaved={() => { forgetLast(); onPatch({ speak: true }); }}
+            onDiscard={() => { forgetLast(); onClose(); }}
+            onAgain={() => { forgetLast(); setResult(null); setDrive(false); setRun({ topic: null, sentences: [] }); setPhase("setup"); }}
+            onPron={(sents) => { forgetLast(); setResult(null); start({ driveMode: false, topicKey: "aussprache", sentences: sents }); }}
             onClose={onClose} onError={onError}
           />
         )}
@@ -375,8 +379,9 @@ export default function Talk({ userId, today, month, onPatch, onClose, onError }
 }
 
 // ── ① 고르기 ─────────────────────────────────────────────────────────────────
-function Setup({ pref, savePref, budget, last, connecting, onStart, onDrive, onResume }) {
+function Setup({ pref, savePref, budget, last, connecting, onStart, onDrive, onResume, onDropLast, userId, today, onError }) {
   const ok = rtSupported();
+  const [dropArmed, setDropArmed] = useState(false);
   const hasLast = last && myLines(last.lines).length > 0;
   return (
     <section className="tk-setup">
@@ -389,7 +394,12 @@ function Setup({ pref, savePref, budget, last, connecting, onStart, onDrive, onR
       {hasLast && (
         <div className="notice soft tk-last">
           정리하지 않은 대화가 있어요 ({last.day} · 내 말 {myLines(last.lines).length}줄).
-          <button className="btn small" onClick={onResume}>이어서 정리</button>
+          <span className="tk-last-btns">
+            <button className={`btn small ${dropArmed ? "danger" : ""}`} onClick={() => (dropArmed ? onDropLast() : (setDropArmed(true), setTimeout(() => setDropArmed(false), 3000)))}>
+              {dropArmed ? "정말 버리기" : "버리기"}
+            </button>
+            <button className="btn small" onClick={onResume}>이어서 정리</button>
+          </span>
         </div>
       )}
 
@@ -503,6 +513,8 @@ function Setup({ pref, savePref, budget, last, connecting, onStart, onDrive, onR
           {connecting ? "연결하는 중…" : "🎙 대화 시작"}
         </button>
       </div>
+
+      <PastTalks userId={userId} today={today} onError={onError} />
     </section>
   );
 }

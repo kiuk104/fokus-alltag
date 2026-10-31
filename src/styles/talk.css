@@ -95,3 +95,12 @@
 .tk-pron li { border-left: 3px solid var(--blue); }
 .tk-toggle { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; font-size: 14px; margin-top: 6px; }
 .tk-transcript { margin-top: 4px; }
+
+/* 지난 대화 (components/PastTalks.jsx) */
+.tk-past { margin-top: 12px; }
+.tk-past-item .tk-lines { margin-top: 8px; }
+.tk-past-fixes { list-style: none; display: flex; flex-direction: column; gap: 4px; margin: 8px 0 0; font-size: 13.5px; }
+.tk-past-del { display: flex; align-items: center; justify-content: flex-end; gap: 8px; flex-wrap: wrap; margin-top: 10px; }
+.tk-past-del .btn.danger { border-color: var(--red); color: var(--red); font-weight: 700; }
+.tk-last-btns { display: flex; gap: 6px; }
+.tk-last .btn.danger { border-color: var(--red); color: var(--red); font-weight: 700; }
