@@ -34,6 +34,8 @@ export async function saveEntry(userId, entry) {
     parts: entry.parts,
     updated_at: new Date().toISOString(),
   };
+  // 🎙 대화 기록은 정리 결과(correction)를 처음부터 같이 넣는다 — 기록 화면은 이 칸을 보내지 않는다(교정은 patchEntry)
+  if (entry.correction !== undefined) row.correction = entry.correction;
   const q = entry.id
     ? supabase.from("alltag_entries").update(row).eq("id", entry.id).eq("user_id", userId)
     : supabase.from("alltag_entries").insert({ ...row, user_id: userId });

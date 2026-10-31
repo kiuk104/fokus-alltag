@@ -86,6 +86,27 @@ async function record(userId, model, usage, kind) {
 }
 
 /**
+ * Claude 가 아닌 AI 비용을 남긴다 — 🎙 실시간 대화(OpenAI Realtime). 대화 한 번 = 한 줄.
+ * 비용은 부른 쪽이 계산해서 준다(lib/talk.js rtCost). 같은 이번 달 상한(MONTHLY_CAP)에 들어간다.
+ */
+export async function recordUsage(userId, { provider, model, kind, usage, cost }) {
+  try {
+    await supabase.from("ai_usage_log").insert({
+      user_id: userId,
+      provider,
+      model,
+      kind,
+      input_tokens: usage?.input_tokens || 0,
+      output_tokens: usage?.output_tokens || 0,
+      image_count: 0,
+      cost_usd: Number(cost) || 0,
+    });
+  } catch {
+    /* 기록 실패가 대화를 막지 않게 */
+  }
+}
+
+/**
  * 한 번 부른다. 상한을 먼저 확인하고, 끝나면 기록한다.
  * 반환: { text, model, saving, spent, stop }  — 막혔으면 throw (err.capped = true)
  * stop: Anthropic stop_reason ("end_turn" | "max_tokens" | "refusal" …) — 응답이 잘렸는지 알아야 다시 부를 수 있다

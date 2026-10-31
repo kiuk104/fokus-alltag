@@ -7,6 +7,7 @@ import EntryReview from "./EntryReview";
 import { addDays } from "../lib/program";
 import { formFor } from "../lib/templates";
 import { weekday } from "../lib/program";
+import { TALK_TEMPLATE } from "../lib/talk";
 
 const DAYS = 30;
 const hhmm = (iso) => new Date(iso).toLocaleTimeString("ko-KR", { hour: "2-digit", minute: "2-digit" });
@@ -19,7 +20,7 @@ export default function PastEntries({ userId, today, onError }) {
   useEffect(() => {
     let alive = true;
     loadEntriesRange(userId, addDays(today, -DAYS), addDays(today, -1))
-      .then((r) => alive && setRows(r))
+      .then((r) => alive && setRows(r.filter((x) => x.template !== TALK_TEMPLATE))) // 🎙 대화 기록은 빼고
       .catch(() => alive && setRows([]));
     return () => { alive = false; };
   }, [userId, today]);

@@ -1,0 +1,57 @@
+/* 🎙 실시간 대화 (screens/Talk.jsx · components/TalkReview.jsx) — 틀은 listen.css 의 .lsn */
+
+.tk-setup, .tk-review { display: flex; flex-direction: column; gap: 10px; margin-top: 4px; }
+.tk-setup .cr-label, .tk-review .cr-label { margin-top: 6px; }
+.tk-setup .chips { margin-top: 0; }
+.tk-last { display: flex; align-items: center; justify-content: space-between; gap: 10px; flex-wrap: wrap; }
+
+.tk-topics { display: grid; grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); gap: 8px; }
+.tk-topic-btn {
+  padding: 12px; border-radius: 12px; border: 1.5px solid var(--border); background: var(--card);
+  color: var(--ink); font-size: 14px; text-align: left; cursor: pointer;
+}
+.tk-topic-btn.on { border-color: var(--gold); box-shadow: inset 0 0 0 1px var(--gold); font-weight: 700; }
+.tk-start { min-width: 160px; padding: 12px 18px; font-size: 15px; }
+
+/* 대화 */
+.tk-topic { margin-bottom: 6px; }
+.tk-lines {
+  list-style: none; display: flex; flex-direction: column; gap: 8px;
+  max-height: 52vh; overflow-y: auto; padding: 4px 2px 8px;
+}
+.tk-lines.flat { max-height: none; overflow: visible; }
+.tk-wait { text-align: center; padding: 18px 0; }
+.tk-line { display: flex; flex-direction: column; gap: 2px; max-width: 88%; padding: 9px 12px; border-radius: 14px; }
+.tk-line.ai { align-self: flex-start; background: var(--card); border: 1px solid var(--border); border-bottom-left-radius: 4px; }
+.tk-line.me { align-self: flex-end; background: var(--cream); border: 1.5px dashed var(--gold); border-bottom-right-radius: 4px; }
+.tk-who { font-size: 10.5px; font-weight: 700; color: var(--gold); letter-spacing: 0.2px; }
+.tk-text { font-family: var(--font-de); font-size: 15.5px; line-height: 1.5; white-space: pre-wrap; }
+
+.tk-status { text-align: center; margin: 10px 0 8px; min-height: 1.5em; }
+.tk-ptt {
+  display: block; width: 100%; max-width: 360px; margin: 0 auto; padding: 22px 0; border-radius: 999px;
+  border: none; background: var(--red); color: #fff; font-size: 18px; font-weight: 800;
+  touch-action: none; user-select: none; -webkit-user-select: none; -webkit-touch-callout: none; cursor: pointer;
+}
+.tk-ptt.on { background: var(--ink); color: var(--cream); animation: rc-pulse 1.2s ease-in-out infinite; }
+.tk-ptt.soft { background: var(--card); color: var(--ink); border: 1.5px solid var(--border); font-size: 15px; padding: 14px 0; animation: none; }
+.tk-row { display: flex; align-items: center; justify-content: space-between; gap: 10px; flex-wrap: wrap; margin-top: 14px; }
+.tk-chips { margin-top: 0; }
+.tk-warn { color: var(--red); font-weight: 700; }
+
+/* 정리 */
+.tk-summary { padding: 10px 12px; border-radius: 12px; background: var(--card); border: 1px solid var(--border); }
+.tk-items { list-style: none; display: flex; flex-direction: column; gap: 8px; }
+.tk-items li { display: flex; gap: 8px; padding: 10px; border-radius: 12px; background: var(--card); border: 1px solid var(--border); }
+.tk-items li.off { opacity: 0.5; }
+.tk-item { display: flex; flex-direction: column; gap: 4px; min-width: 0; flex: 1; }
+.tk-said { font-family: var(--font-de); font-size: 14px; color: var(--muted); }
+.tk-better { font-family: var(--font-de); font-size: 16px; font-weight: 600; line-height: 1.45; }
+.tk-ko { font-size: 15px; }
+.tk-ko b { font-family: var(--font-de); }
+.tk-wrong { text-decoration: line-through; text-decoration-color: var(--red); color: var(--red); }
+.tk-right { color: var(--green); }
+.tk-type { display: inline-block; font-size: 11px; padding: 0 7px; border-radius: 999px; border: 1px solid var(--border); margin-right: 4px; }
+.tk-play { border: none; background: none; font-size: 15px; margin-left: 6px; cursor: pointer; vertical-align: middle; }
+.tk-toggle { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; font-size: 14px; margin-top: 6px; }
+.tk-transcript { margin-top: 4px; }

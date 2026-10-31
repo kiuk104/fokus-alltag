@@ -83,6 +83,7 @@ export const randomQuestion = (except) => {
 
 /** 형식(+요일) → { title, hint, fields } */
 export function formFor(tplKey, wd) {
+  if (tplKey === "talk") return { title: "🎙 실시간 대화", hint: "AI 와 독일어로 대화한 기록.", fields: [] };
   if (tplKey === "expand3") return { title: "3단계 확장", hint: "한 문장을 세 번 늘린다.", fields: EXPAND3 };
   if (tplKey === "why") return { title: "\"왜?\"에 답하기", hint: "B1 → B2 → B2+ 로 답을 키운다.", fields: WHY };
   if (tplKey === "problem4") return { title: "문제 해결 4칸", hint: "상황 → 원인 → 결과 → 해결책.", fields: PROBLEM4 };

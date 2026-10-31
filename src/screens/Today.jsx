@@ -28,7 +28,7 @@ function longDate(s, t) {
   return t("date.long", { m, d, dow: t(`dow.${weekday(s)}`) });
 }
 
-export default function Today({ program, today, days, onPatch, onGoEntry, onListen, onRecall, drillDue = 0, onDrill }) {
+export default function Today({ program, today, days, onPatch, onGoEntry, onListen, onRecall, onTalk, drillDue = 0, onDrill }) {
   const t = useT();
   const start = program.start_date;
   const st = programState(start, today);
@@ -138,9 +138,14 @@ export default function Today({ program, today, days, onPatch, onGoEntry, onList
                 <div className="step-desc">{t(`today.step.${s.key}.desc`)}</div>
               </div>
               {s.key === "speak" && (
-                <button className="btn small" onClick={onGoEntry}>
-                  {t("today.step.speak.go")}
-                </button>
+                <div className="step-btns">
+                  <button className="btn small" onClick={onTalk}>
+                    {t("today.step.speak.talk")}
+                  </button>
+                  <button className="btn small" onClick={onGoEntry}>
+                    {t("today.step.speak.go")}
+                  </button>
+                </div>
               )}
               {s.key === "repeat" && (
                 <button className="btn small" onClick={onRecall}>

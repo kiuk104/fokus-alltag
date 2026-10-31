@@ -10,7 +10,7 @@ import { registerServiceWorker } from "./lib/pwa";
 import { applyTheme, getSettings, saveSettings } from "./lib/theme";
 import { loadDeTheme, withDeTheme } from "./lib/deTheme";
 import { loadProgram, saveProgram, loadDays, saveDay, MIGRATION_FILE } from "./lib/programRepo";
-import { addDays, ymd } from "./lib/program";
+import { addDays, ymd, programState } from "./lib/program";
 import { loadEntriesRange } from "./lib/entryRepo";
 import { collectItems, isDue, pickSession } from "./lib/drill";
 import Auth from "./components/Auth";
@@ -24,6 +24,7 @@ import Settings from "./screens/Settings";
 import Listen from "./screens/Listen";
 import Recall from "./screens/Recall";
 import Drill from "./screens/Drill";
+import Talk from "./screens/Talk";
 import { profileFor } from "./profiles/index.js";
 import { LangContext } from "./strings/useT";
 import { makeT } from "./strings/t.js";
@@ -43,6 +44,7 @@ export default function App() {
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [listenSrc, setListenSrc] = useState(null); // 듣기 화면에 띄운 출처
   const [recallOpen, setRecallOpen] = useState(false); // 🔴 3문장 꺼내기
+  const [talkOpen, setTalkOpen] = useState(false); // 🎙 실시간 대화
   const [appSet, setAppSet] = useState(() => getSettings());
 
   // 자정을 넘겨 켜 둔 앱이 어제를 "오늘"로 보여 주지 않게 — 돌아올 때마다 다시 잰다.
@@ -252,6 +254,7 @@ export default function App() {
           onGoEntry={() => setTab("entry")}
           onListen={setListenSrc}
           onRecall={() => setRecallOpen(true)}
+          onTalk={() => setTalkOpen(true)}
           drillDue={drillDue}
           onDrill={() => openDrill(null)}
         />
@@ -285,6 +288,18 @@ export default function App() {
           done={!!days.get(today)?.repeat}
           onDone={() => patchDay(today, { repeat: true })}
           onClose={() => setRecallOpen(false)}
+          onError={setError}
+        />
+      )}
+
+      {talkOpen && (
+        <Talk
+          key={today}
+          userId={userId}
+          today={today}
+          month={programState(program.start_date, today).month || 1}
+          onPatch={(patch) => patchDay(today, patch)}
+          onClose={() => setTalkOpen(false)}
           onError={setError}
         />
       )}

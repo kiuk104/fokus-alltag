@@ -27,6 +27,7 @@ export default {
   "today.step.speak.min": "10분",
   "today.step.speak.desc": "오늘 있었던 일 하나를 독일어로.",
   "today.step.speak.go": "기록",
+  "today.step.speak.talk": "🎙 대화",
   "today.step.correct.title": "AI 교정",
   "today.step.correct.min": "5분",
   "today.step.correct.desc": "틀린 곳을 먼저 스스로 고쳐 보고 → 정답 → 문법 하나를 내 말로 설명.",

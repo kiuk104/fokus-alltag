@@ -22,10 +22,11 @@ function apiDev() {
           res.end(JSON.stringify({ error: e?.message || String(e) }));
         }
       });
-      // 원어민 발음 (api/tts.js — Fokus DE 와 같은 파일). Vercel 처럼 본문을 미리 읽어 req.body 로 준다.
-      server.middlewares.use("/api/tts", async (req, res) => {
+      // 원어민 발음 (api/tts.js — Fokus DE 와 같은 파일) · 🎙 실시간 대화 열쇠 (api/talk-token.js).
+      // Vercel 처럼 본문을 미리 읽어 req.body 로 준다.
+      for (const name of ["tts", "talk-token"]) server.middlewares.use(`/api/${name}`, async (req, res) => {
         try {
-          const { default: handler } = await server.ssrLoadModule("/api/tts.js");
+          const { default: handler } = await server.ssrLoadModule(`/api/${name}.js`);
           if (req.method === "POST") {
             const chunks = [];
             for await (const c of req) chunks.push(c);
@@ -45,8 +46,8 @@ function apiDev() {
 // 설정은 fokus-karten/vite.config.js 를 따랐다. 다른 점:
 //  · dev 포트 5175 — Fokus DE(5173)·Karten(5174)과 origin 이 달라야
 //    localStorage 의 Supabase 세션·설정이 섞이지 않는다.
-//  · /api 는 듣기(listen)와 발음(tts) — AI 교정은 Fokus DE 의 Supabase 함수를 부른다(lib/ai.js, CP2).
-//  · .env 의 VITE_ 가 아닌 값(TTS 키)도 process.env 로 올린다 — 개발 서버 안의 api/tts.js 만 읽고 브라우저로는 안 간다.
+//  · /api 는 듣기(listen) · 발음(tts) · 🎙 대화 열쇠(talk-token) — AI 교정은 Fokus DE 의 Supabase 함수를 부른다(lib/ai.js, CP2).
+//  · .env 의 VITE_ 가 아닌 값(TTS 키 · OPENAI_API_KEY)도 process.env 로 올린다 — 개발 서버 안의 api/tts.js 만 읽고 브라우저로는 안 간다.
 export default defineConfig(({ mode }) => {
   Object.assign(process.env, loadEnv(mode, process.cwd(), ""));
   return {

@@ -9,6 +9,7 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { programState, templateFor, mixFor, weekday } from "../lib/program";
+import { TALK_TEMPLATE } from "../lib/talk";
 import { formFor, SWITCHABLE, composeText, hasContent, randomQuestion, carryText, isSkipped } from "../lib/templates";
 import { listen, stopListening, supported, appendSpoken } from "../lib/speech";
 import { loadEntries, saveEntry, deleteEntry, loadDraft, saveDraft, peekLegacyDraft, clearLegacyDraft } from "../lib/entryRepo";
@@ -53,7 +54,7 @@ export default function Entry({ program, today, userId, onPatch, onError }) {
   useEffect(() => {
     let alive = true;
     loadEntries(userId, today)
-      .then((rows) => alive && setEntries(rows))
+      .then((rows) => alive && setEntries(rows.filter((r) => r.template !== TALK_TEMPLATE))) // 🎙 대화 기록은 대화 화면 몫
       .catch((e) => alive && (setEntries([]), onError(e.message)));
     return () => { alive = false; };
   }, [userId, today, onError]);
