@@ -30,7 +30,7 @@ const writeJson = (k, v) => { try { if (v == null) localStorage.removeItem(k); e
 const linesReducer = (lines, ev) => (ev === "reset" ? [] : applyEvent(lines, ev));
 
 export default function Talk({ userId, today, month, onPatch, onClose, onError }) {
-  const [pref, setPref] = useState(() => ({ topic: "tag", mode: "auto", noise: "near", style: "flow", lang: "de", voice: "marin", tone: "freundlich", speed: "normal", ...readJson(PREF_KEY, {}) }));
+  const [pref, setPref] = useState(() => ({ topic: "tag", mode: "auto", noise: "near", style: "flow", lang: "de", voice: "marin", tone: "freundlich", speed: "normal", filler: "ignore", ...readJson(PREF_KEY, {}) }));
   const [phase, setPhase] = useState("setup"); // setup | connecting | live | paused | review
   const [drive, setDrive] = useState(false); // 🚗 운전 모드 — 이번 대화에만
   const [lines, dispatch] = useReducer(linesReducer, []);
@@ -186,6 +186,7 @@ export default function Talk({ userId, today, month, onPatch, onClose, onError }
         mode: c.mode,
         noise: c.noise,
         lang: c.lang,
+        guard: c.filler !== "off",
         onEvent,
         onError: setErr,
         // 신호가 끊기면 정리로 가지 않고 "이어서" 를 기다린다 — 배송 중엔 터널·지하 주차장이 흔하다
@@ -432,6 +433,17 @@ function Setup({ pref, savePref, budget, last, connecting, onStart, onDrive, onR
         <button className={`chip ${pref.mode === "auto" ? "on" : ""}`} onClick={() => savePref({ mode: "auto" })}>자동 — “음…” 해도 기다려 줌</button>
         <button className={`chip ${pref.mode === "ptt" ? "on" : ""}`} onClick={() => savePref({ mode: "ptt" })}>누르고 말하기 — 시끄러운 곳</button>
       </div>
+
+      <div className="cr-label">추임새 <span className="muted">— “음…”, “아~”, “ähm”</span></div>
+      <div className="chips">
+        <button className={`chip ${pref.filler !== "off" ? "on" : ""}`} onClick={() => savePref({ filler: "ignore" })}>무시 — 대화가 안 끊김</button>
+        <button className={`chip ${pref.filler === "off" ? "on" : ""}`} onClick={() => savePref({ filler: "off" })}>그대로 — 말로 AI 끊기 가능</button>
+      </div>
+      <p className="muted tiny">
+        {pref.filler === "off"
+          ? "AI 가 말하는 중에 소리를 내면 AI 가 멈추고, “음”만 해도 대답할 수 있어요."
+          : "AI 가 말하는 중에 “아~” 해도 멈추지 않고, “음…”만 말하면 대답하지 않고 기다려요. 대신 대답이 0.5초쯤 늦을 수 있어요. (자동 차례에서만)"}
+      </p>
 
       <div className="cr-label">폰 위치</div>
       <div className="chips">

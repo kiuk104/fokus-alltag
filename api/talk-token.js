@@ -4,7 +4,7 @@
 // "1분 안에 세션 하나만 열 수 있는 열쇠(ek_…)"를 받아 브라우저에 준다. 세션 설정(모델·지시문·턴 감지·받아쓰기)은
 // 여기서 정해 열쇠에 묶는다 — 브라우저가 마음대로 비싼 모델로 바꾸지 못하게.
 //
-// 받는 것: { instructions, mode: "auto"|"ptt", noise: "near"|"far", lang: "de"|"mix", voice?, speed? }   헤더 Authorization: Bearer <Supabase 토큰>
+// 받는 것: { instructions, mode: "auto"|"ptt", noise: "near"|"far", lang: "de"|"mix", guard?, voice?, speed? }   헤더 Authorization: Bearer <Supabase 토큰>
 // 주는 것: { value, expires_at, model }
 //
 // Vercel 환경변수:
@@ -33,9 +33,10 @@ const TRANSCRIBE_PROMPT = {
   mix: `Deutsch eines Lernenden, manchmal mit einzelnen koreanischen Wörtern. ${TRANSCRIBE_EXACT} Koreanische Wörter in Hangul schreiben.`,
 };
 
-// 브라우저(src/lib/realtime.js turnDetection)와 같은 값
-const turnDetection = (mode) =>
-  mode === "ptt" ? null : { type: "semantic_vad", eagerness: "low", create_response: true, interrupt_response: true };
+// 브라우저(src/lib/realtime.js turnDetection)와 같은 값.
+// guard(추임새 무시, 기본): 서버가 바로 대답하지 않고(브라우저가 받아쓰기를 보고 부탁) · 내 소리로 AI 말을 끊지 않는다
+const turnDetection = (mode, guard = true) =>
+  mode === "ptt" ? null : { type: "semantic_vad", eagerness: "low", create_response: !guard, interrupt_response: !guard };
 
 async function requireUser(req) {
   const url = env("SUPABASE_URL", "VITE_SUPABASE_URL");
@@ -49,7 +50,7 @@ async function requireUser(req) {
 }
 
 /** 세션 설정 — 순수 함수 (테스트: talk-token.test.mjs) */
-export function sessionConfig({ instructions, mode, noise, lang, voice: want, speed }, { model, voice, transcribe }) {
+export function sessionConfig({ instructions, mode, noise, lang, guard, voice: want, speed }, { model, voice, transcribe }) {
   const mix = lang === "mix";
   const sp = Math.min(1.5, Math.max(0.7, Number(speed) || 1)); // 너무 느리거나 빠르면 독일어가 이상해진다
   return {
@@ -65,7 +66,7 @@ export function sessionConfig({ instructions, mode, noise, lang, voice: want, sp
         transcription: mix
           ? { model: transcribe, prompt: TRANSCRIBE_PROMPT.mix }
           : { model: transcribe, language: "de", prompt: TRANSCRIBE_PROMPT.de },
-        turn_detection: turnDetection(mode),
+        turn_detection: turnDetection(mode, guard !== false),
       },
       output: { voice: VOICE_OK.has(want) ? want : voice, speed: sp },
     },

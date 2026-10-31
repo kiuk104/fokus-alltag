@@ -134,3 +134,18 @@ test("운전 모드 · 이어서: 짧게 말하라는 규칙, 앞 대화 끝부�
   assert.doesNotMatch(r, /Satz 15/);
   assert.equal(continueRule([]), "");
 });
+
+test("추임새: 음·아·ähm 만 있으면 추임새, 대답(ja·응)이나 문장은 아님", async () => {
+  const { isFiller } = await import("./talk.js");
+  for (const t of ["음", "으음…", "아~", "어...", "Ähm.", "hmm", "Mhm", "ähm, äh", "", "…", "흠", "으으음"]) assert.ok(isFiller(t), t);
+  for (const t of ["ja", "응", "Okay", "Ich habe ähm", "아니요", "Nein.", "Also gut", "음 Ich weiß nicht"]) assert.ok(!isFiller(t), t);
+});
+
+test("대화록: 지운 내 말(추임새)은 화면에서도 빠진다", () => {
+  const lines = run([
+    { type: "input_audio_buffer.committed", item_id: "u1" },
+    { type: "conversation.item.input_audio_transcription.completed", item_id: "u1", transcript: "음…" },
+    { type: "conversation.item.deleted", item_id: "u1" },
+  ]);
+  assert.equal(lines.length, 0);
+});

@@ -18,6 +18,12 @@ test("세션 설정: 누르고 말하기는 턴 감지를 끄고, 자동은 sema
   const auto = sessionConfig({ instructions: "x".repeat(9000), mode: "auto" }, opt);
   assert.deepEqual(auto.audio.input.turn_detection.type, "semantic_vad");
   assert.equal(auto.audio.input.turn_detection.eagerness, "low");
+  // 추임새 무시(기본): 서버가 바로 대답하지 않고, 내 소리로 AI 말을 끊지 않는다
+  assert.equal(auto.audio.input.turn_detection.create_response, false);
+  assert.equal(auto.audio.input.turn_detection.interrupt_response, false);
+  const raw = sessionConfig({ instructions: "x", mode: "auto", guard: false }, opt);
+  assert.equal(raw.audio.input.turn_detection.create_response, true);
+  assert.equal(raw.audio.input.turn_detection.interrupt_response, true);
   assert.equal(auto.audio.input.noise_reduction.type, "near_field");
   assert.equal(auto.audio.input.transcription.language, "de"); // 기본은 독일어 고정 — 한국어로 잘못 받아 적지 않게
   const mix = sessionConfig({ instructions: "x", mode: "auto", lang: "mix" }, opt);

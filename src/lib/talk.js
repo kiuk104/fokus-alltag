@@ -156,6 +156,8 @@ export function talkInstructions(topicKey, { month = 1, style = "flow", tone = "
       "nenne kurz das deutsche Wort mit Artikel („소포 – das Paket.“) und mach dann normal weiter.",
     "- Wenn er auf Koreanisch fragt, wie man etwas sagt, antworte ganz kurz auf Koreanisch mit dem deutschen Ausdruck und kehre dann zum Deutschen zurück. Erklärungen immer auf Koreanisch.",
     "- Wenn er „ähm“ sagt oder eine Pause macht, warte geduldig. Reagiere nicht auf Hintergrundgeräusche oder Gespräche anderer Leute.",
+    "- Reine Füllwörter („ähm“, „hmm“, „mhm“, koreanisch „음“, „으음“, „아“, „어“) sind KEINE Antwort und keine Unterbrechung – ignoriere sie und sprich ggf. einfach weiter. " +
+      "Wenn seine Äußerung unvollständig klingt (endet mit einem Füllwort oder mitten im Satz), sag nur ganz kurz „Mhm?“ oder „Ja …?“ und lass ihn weiterreden.",
     "- Sei ermutigend, aber nicht übertrieben.",
     extra ? `\n${extra}` : "",
   ].join("\n").trim();
@@ -189,6 +191,8 @@ export function applyEvent(lines, ev) {
     }
     case "conversation.item.input_audio_transcription.completed":
       return put(lines, ev.item_id, "me", { text: String(ev.transcript || "").trim(), done: true });
+    case "conversation.item.deleted": // 추임새만 있던 내 말 — realtime.js 가 지웠다
+      return lines.filter((l) => l.id !== ev.item_id);
     case "conversation.item.input_audio_transcription.failed":
       return put(lines, ev.item_id, "me", { done: true, failed: true });
     case "response.output_item.added":
@@ -202,6 +206,21 @@ export function applyEvent(lines, ev) {
     default:
       return lines;
   }
+}
+
+/**
+ * 추임새만 있는 말인가 — "음…", "으음", "아~", "ähm", "hmm", "Mhm" …  (2026-10-31: 추임새에 AI 가 끼어들어 대화가 끊겼다)
+ * 맞장구로 대답이 되는 말("ja", "응", "okay")은 추임새가 아니다 — 그건 대답이다.
+ * 소리만 있고 글자가 없는 것(빈 받아쓰기, "…")도 추임새로 친다.
+ */
+const FILLER = /^(ä+h*m*|e+h*m+|ö+h*m*|u+h*m+|h+m+|m+h*m+|a+h+|o+h+|음+|으+음*|으+|아+|어+|에+|흠+|음음+|그+|저+|ehm|ähm|äh|hm+|mm+|uh+|um+|er+m*)$/i;
+export function isFiller(text) {
+  const words = String(text || "")
+    .toLowerCase()
+    .replace(/[.,!?…~\-–—"'„“”()]+/g, " ")
+    .split(/\s+/)
+    .filter(Boolean);
+  return words.every((w) => FILLER.test(w));
 }
 
 /** 빈 줄(소리만 들어오고 말이 없던 것)은 뺀 대화록 */

@@ -11,6 +11,7 @@
 //   ptt  : 누르고 말하기 — 누르는 동안만 마이크를 열고, 떼면 그때 대답한다. 차 안·밖처럼 시끄러운 곳용.
 
 import { supabase } from "./supabase";
+import { isFiller } from "./talk.js";
 
 const CALLS_URL = "https://api.openai.com/v1/realtime/calls";
 
@@ -38,18 +39,25 @@ async function fetchToken(body) {
   return d;
 }
 
-/** 턴 감지 설정 — 서버(api/talk-token.js)와 같은 값 */
-export const turnDetection = (mode) =>
-  mode === "ptt" ? null : { type: "semantic_vad", eagerness: "low", create_response: true, interrupt_response: true };
+/**
+ * 턴 감지 설정 — 서버(api/talk-token.js)와 같은 값.
+ * guard(추임새 무시, 기본): 말이 끝나도 서버가 바로 대답하지 않는다 → 받아쓰기를 보고 추임새만이면 지우고, 아니면 이 파일이 대답을 부탁한다.
+ *   그리고 AI 가 말하는 중에 내가 "아~" 해도 AI 말을 끊지 않는다(interrupt_response false).
+ */
+export const turnDetection = (mode, guard = true) =>
+  mode === "ptt" ? null : { type: "semantic_vad", eagerness: "low", create_response: !guard, interrupt_response: !guard };
+
+/** 받아쓰기가 이만큼 안 오면 그냥 대답한다 (추임새 판정을 못 해도 대화가 멈추지 않게) */
+const GUARD_WAIT_MS = 2500;
 
 /**
  * 연결한다. 반환: 세션 객체 { model, press(), release(), setMode(), close(), mute() }
- * opts: { instructions, mode, noise: "near"|"far", lang: "de"|"mix", onEvent(ev), onState(state), onError(msg) }
+ * opts: { instructions, mode, noise: "near"|"far", lang: "de"|"mix", guard: 추임새 무시, onEvent(ev), onState(state), onError(msg) }
  *   state: "connecting" | "live" | "closed"
  */
-export async function connectTalk({ instructions, mode = "auto", noise = "near", lang = "de", voice, speed, onEvent, onState, onError }) {
+export async function connectTalk({ instructions, mode = "auto", noise = "near", lang = "de", guard = true, voice, speed, onEvent, onState, onError }) {
   onState?.("connecting");
-  const tk = await fetchToken({ instructions, mode, noise, lang, voice, speed });
+  const tk = await fetchToken({ instructions, mode, noise, lang, guard, voice, speed });
 
   let mic;
   try {
@@ -89,9 +97,48 @@ export async function connectTalk({ instructions, mode = "auto", noise = "near",
     // AI 가 먼저 말을 건다 (지시문의 "Beginne das Gespräch selbst")
     send({ type: "response.create" });
   };
+  // ── 추임새 무시 (자동 차례에서만) ──
+  // 대답 중에 또 대답을 부탁하면 서버가 거절한다 → 대답 중이면 끝난 뒤에 부탁한다.
+  let active = false;
+  let pending = false;
+  const waits = new Map(); // item_id → 받아쓰기 기다리는 타이머
+  const reply = () => {
+    if (active) { pending = true; return; }
+    active = true; // response.created 가 오기 전에 또 부탁하지 않게
+    send({ type: "response.create" });
+  };
+  const guarding = () => guard && curMode !== "ptt";
+  const settle = (id, filler) => {
+    if (!waits.has(id)) return;
+    clearTimeout(waits.get(id));
+    waits.delete(id);
+    if (filler) send({ type: "conversation.item.delete", item_id: id }); // AI 가 앞 대화로도 보지 않게
+    else reply();
+  };
+  const guardEvent = (ev) => {
+    switch (ev.type) {
+      case "response.created": active = true; break;
+      case "response.done":
+        active = false;
+        if (pending) { pending = false; reply(); }
+        break;
+      case "input_audio_buffer.committed":
+        if (guarding() && ev.item_id) waits.set(ev.item_id, setTimeout(() => settle(ev.item_id, false), GUARD_WAIT_MS));
+        break;
+      case "conversation.item.input_audio_transcription.completed":
+        settle(ev.item_id, isFiller(ev.transcript));
+        break;
+      case "conversation.item.input_audio_transcription.failed":
+        settle(ev.item_id, false);
+        break;
+      default:
+    }
+  };
+
   dc.onmessage = (m) => {
     let ev;
     try { ev = JSON.parse(m.data); } catch { return; }
+    guardEvent(ev);
     if (ev.type === "error") {
       const msg = ev.error?.message || "알 수 없는 오류";
       // 너무 짧게 누르고 뗀 경우 — 무시해도 된다
@@ -152,7 +199,7 @@ export async function connectTalk({ instructions, mode = "auto", noise = "near",
     setMode(next) {
       curMode = next;
       track.enabled = next !== "ptt";
-      send({ type: "session.update", session: { type: "realtime", audio: { input: { turn_detection: turnDetection(next) } } } });
+      send({ type: "session.update", session: { type: "realtime", audio: { input: { turn_detection: turnDetection(next, guard) } } } });
     },
     /** 지시문 바꾸기 — 교정 방식(흐름 유지 ↔ 선생님)을 대화 중에 바꿀 때 */
     setInstructions(text) {
@@ -166,6 +213,7 @@ export async function connectTalk({ instructions, mode = "auto", noise = "near",
     close() {
       if (closed) return;
       closed = true;
+      waits.forEach((t) => clearTimeout(t));
       try { dc.close(); } catch { /* 이미 닫힘 */ }
       try { pc.close(); } catch { /* 이미 닫힘 */ }
       mic.getTracks().forEach((t) => t.stop());
