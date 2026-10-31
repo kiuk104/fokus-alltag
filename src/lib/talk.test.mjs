@@ -52,7 +52,7 @@ test("비용: 캐시된 입력은 싸게, 모르는 모델은 비싼 쪽으로",
   assert.ok(Math.abs(mini - 0.03033) < 1e-9);
   assert.ok(rtCost("??", usage) > mini);
   assert.equal(rtCost("gpt-realtime-2.1-mini", null), 0);
-  assert.ok(Math.abs(transcribeCost({ type: "duration", seconds: 60 }) - 0.003) < 1e-12);
+  assert.ok(Math.abs(transcribeCost({ type: "duration", seconds: 60 }) - 0.006) < 1e-12);
   assert.deepEqual(sumUsage([{ input_tokens: 1, output_tokens: 2 }, { input_tokens: 3 }]), { input_tokens: 4, output_tokens: 2 });
 });
 
@@ -112,4 +112,12 @@ test("지시문: 주제 상황과 '대화 중 교정하지 않기'가 들어간�
   assert.match(s, /B1\+\/B2/);
   assert.match(talkInstructions("없는주제"), new RegExp(TOPICS[0].scene.slice(0, 20)));
   assert.equal(clock(125.9), "2:05");
+  assert.doesNotMatch(s, /LEHRER-MODUS/);
+  const teach = talkInstructions("tag", { style: "teacher" });
+  assert.match(teach, /LEHRER-MODUS/);
+  assert.match(teach, /혹시 이 말 하려던 거예요/);
+  assert.doesNotMatch(teach, /Unterbrich den Gesprächsfluss nicht/);
+  assert.ok(!teach.includes("\\n"));
+  assert.match(talkInstructions("tag", { tone: "sachlich" }), /Tonfall: Sprich höflich, sachlich/);
+  assert.match(talkInstructions("tag"), /Tonfall: Sprich warm/);
 });

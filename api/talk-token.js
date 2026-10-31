@@ -4,14 +4,15 @@
 // "1분 안에 세션 하나만 열 수 있는 열쇠(ek_…)"를 받아 브라우저에 준다. 세션 설정(모델·지시문·턴 감지·받아쓰기)은
 // 여기서 정해 열쇠에 묶는다 — 브라우저가 마음대로 비싼 모델로 바꾸지 못하게.
 //
-// 받는 것: { instructions, mode: "auto"|"ptt", noise: "near"|"far" }   헤더 Authorization: Bearer <Supabase 토큰>
+// 받는 것: { instructions, mode: "auto"|"ptt", noise: "near"|"far", lang: "de"|"mix", voice?, speed? }   헤더 Authorization: Bearer <Supabase 토큰>
 // 주는 것: { value, expires_at, model }
 //
 // Vercel 환경변수:
 //   OPENAI_API_KEY            (필수) platform.openai.com → API keys
 //   OPENAI_REALTIME_MODEL     기본 gpt-realtime-2.1-mini (싸다). 더 좋은 대화는 gpt-realtime-2.1
-//   OPENAI_REALTIME_VOICE     기본 marin
-//   OPENAI_TRANSCRIBE_MODEL   기본 gpt-4o-mini-transcribe — "내가 말한 것이 어떻게 인식됐는지" 보여 주는 받아쓰기
+//   OPENAI_REALTIME_VOICE     기본 marin (화면에서 고르면 그 목소리 — VOICE_OK 안에서만)
+//   OPENAI_TRANSCRIBE_MODEL   기본 gpt-4o-transcribe — "내가 말한 것이 어떻게 인식됐는지" 보여 주는 받아쓰기
+//                             (2026-10-31 mini → 정확한 쪽으로. 독일어를 한국어로 받아 적는 일이 있었다. 분당 약 $0.006)
 //   SUPABASE_URL / SUPABASE_ANON_KEY (VITE_ 이름으로도 읽는다)
 
 import { createClient } from "@supabase/supabase-js";
@@ -21,12 +22,16 @@ const env = (...names) => {
   return "";
 };
 
+// 화면(src/lib/talk.js VOICES)에서 고를 수 있는 목소리 — 이 밖의 값은 기본 목소리로
+const VOICE_OK = new Set(["marin", "cedar", "coral", "sage", "ash", "verse", "alloy", "ballad", "echo", "shimmer"]);
 const MAX_INSTRUCTIONS = 6000; // 지시문 길이 상한 — 긴 글을 실어 보내 토큰을 쓰는 걸 막는다
 
-const TRANSCRIBE_PROMPT =
-  "Deutsch eines Lernenden, manchmal mit einzelnen koreanischen Wörtern. " +
-  "Schreibe genau auf, was gesagt wurde – auch grammatische Fehler, falsche Artikel und Endungen. " +
-  "Nichts korrigieren. Koreanische Wörter in Hangul schreiben.";
+// 받아쓰기 힌트 — 고쳐 적지 말 것 (기획 요구사항 4)
+const TRANSCRIBE_EXACT = "Schreibe genau auf, was gesagt wurde – auch grammatische Fehler, falsche Artikel und Endungen. Nichts korrigieren.";
+const TRANSCRIBE_PROMPT = {
+  de: `Deutsch eines koreanischen Lernenden. ${TRANSCRIBE_EXACT}`,
+  mix: `Deutsch eines Lernenden, manchmal mit einzelnen koreanischen Wörtern. ${TRANSCRIBE_EXACT} Koreanische Wörter in Hangul schreiben.`,
+};
 
 // 브라우저(src/lib/realtime.js turnDetection)와 같은 값
 const turnDetection = (mode) =>
@@ -44,7 +49,9 @@ async function requireUser(req) {
 }
 
 /** 세션 설정 — 순수 함수 (테스트: talk-token.test.mjs) */
-export function sessionConfig({ instructions, mode, noise }, { model, voice, transcribe }) {
+export function sessionConfig({ instructions, mode, noise, lang, voice: want, speed }, { model, voice, transcribe }) {
+  const mix = lang === "mix";
+  const sp = Math.min(1.5, Math.max(0.7, Number(speed) || 1)); // 너무 느리거나 빠르면 독일어가 이상해진다
   return {
     type: "realtime",
     model,
@@ -53,11 +60,14 @@ export function sessionConfig({ instructions, mode, noise }, { model, voice, tra
     audio: {
       input: {
         noise_reduction: { type: noise === "far" ? "far_field" : "near_field" },
-        // language 를 비워 둔다 — 독일어 속에 섞인 한국어도 받아 적게
-        transcription: { model: transcribe, prompt: TRANSCRIBE_PROMPT },
+        // 독일어 고정(기본): 독일어를 한국어로 잘못 받아 적지 않게. 한국어 섞기: language 를 비워 섞인 한국어도 받아 적게.
+        // 어느 쪽이든 대화 모델은 소리를 직접 듣는다 — 이 설정은 화면의 "인식된 내 말"과 정리에만 영향
+        transcription: mix
+          ? { model: transcribe, prompt: TRANSCRIBE_PROMPT.mix }
+          : { model: transcribe, language: "de", prompt: TRANSCRIBE_PROMPT.de },
         turn_detection: turnDetection(mode),
       },
-      output: { voice },
+      output: { voice: VOICE_OK.has(want) ? want : voice, speed: sp },
     },
   };
 }
@@ -81,7 +91,7 @@ export default async function handler(req, res) {
     const session = sessionConfig(body, {
       model,
       voice: env("OPENAI_REALTIME_VOICE") || "marin",
-      transcribe: env("OPENAI_TRANSCRIBE_MODEL") || "gpt-4o-mini-transcribe",
+      transcribe: env("OPENAI_TRANSCRIBE_MODEL") || "gpt-4o-transcribe",
     });
 
     const r = await fetch("https://api.openai.com/v1/realtime/client_secrets", {

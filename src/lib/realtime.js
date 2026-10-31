@@ -44,12 +44,12 @@ export const turnDetection = (mode) =>
 
 /**
  * 연결한다. 반환: 세션 객체 { model, press(), release(), setMode(), close(), mute() }
- * opts: { instructions, mode, noise: "near"|"far", onEvent(ev), onState(state), onError(msg) }
+ * opts: { instructions, mode, noise: "near"|"far", lang: "de"|"mix", onEvent(ev), onState(state), onError(msg) }
  *   state: "connecting" | "live" | "closed"
  */
-export async function connectTalk({ instructions, mode = "auto", noise = "near", onEvent, onState, onError }) {
+export async function connectTalk({ instructions, mode = "auto", noise = "near", lang = "de", voice, speed, onEvent, onState, onError }) {
   onState?.("connecting");
-  const tk = await fetchToken({ instructions, mode, noise });
+  const tk = await fetchToken({ instructions, mode, noise, lang, voice, speed });
 
   let mic;
   try {
@@ -153,6 +153,10 @@ export async function connectTalk({ instructions, mode = "auto", noise = "near",
       curMode = next;
       track.enabled = next !== "ptt";
       send({ type: "session.update", session: { type: "realtime", audio: { input: { turn_detection: turnDetection(next) } } } });
+    },
+    /** 지시문 바꾸기 — 교정 방식(흐름 유지 ↔ 선생님)을 대화 중에 바꿀 때 */
+    setInstructions(text) {
+      send({ type: "session.update", session: { type: "realtime", instructions: text } });
     },
     /** 잠깐 마이크 끄기 (자동 모드에서) */
     mute(on) {

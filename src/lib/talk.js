@@ -50,11 +50,72 @@ export const TALK_MAX_MIN = 10;
 /** 끝내기 1분 전에 알린다 */
 export const TALK_WARN_MIN = TALK_MAX_MIN - 1;
 
+/** 교정 방식 — 대화 중에 끊고 고쳐 줄까 */
+export const STYLES = [
+  { key: "flow", label: "흐름 유지", desc: "끝나고 한꺼번에 정리" },
+  { key: "teacher", label: "선생님", desc: "틀리면 바로 끊고 확인" },
+];
+
+/**
+ * AI 목소리 — OpenAI Realtime 기본 목소리 중 독일어가 자연스러운 것. 세션을 열 때 정해지고 대화 중에는 못 바꾼다.
+ * 서버(api/talk-token.js VOICE_OK)도 같은 목록만 받는다.
+ */
+export const VOICES = [
+  { key: "marin", label: "Marin", desc: "여성 · 차분" },
+  { key: "coral", label: "Coral", desc: "여성 · 밝음" },
+  { key: "sage", label: "Sage", desc: "여성 · 부드러움" },
+  { key: "cedar", label: "Cedar", desc: "남성 · 차분" },
+  { key: "ash", label: "Ash", desc: "남성 · 또렷" },
+  { key: "verse", label: "Verse", desc: "남성 · 표현 풍부" },
+];
+
+/** 말투 — 지시문에 한 줄로 들어간다 */
+export const TONES = [
+  { key: "freundlich", label: "친근하게", rule: "Sprich warm, locker und freundlich, wie ein netter Bekannter (duzen ist okay, außer im Rollenspiel passt Siezen)." },
+  { key: "ruhig", label: "차분하게", rule: "Sprich ruhig, geduldig und etwas langsamer, mit klaren Pausen zwischen den Sätzen." },
+  { key: "lebhaft", label: "활기차게", rule: "Sprich lebhaft, fröhlich und energisch, mit viel Ausdruck in der Stimme." },
+  { key: "sachlich", label: "사무적으로", rule: "Sprich höflich, sachlich und knapp, wie im Berufsalltag (Siezen), ohne viel Smalltalk." },
+];
+export const toneOf = (key) => TONES.find((t) => t.key === key) || TONES[0];
+
+/** 말 빠르기 — audio.output.speed */
+export const SPEEDS = [
+  { key: "slow", label: "천천히", value: 0.85 },
+  { key: "normal", label: "보통", value: 1 },
+];
+
+/** 인식 언어 — 내 말 받아쓰기 */
+export const LANGS = [
+  { key: "de", label: "독일어로 고정", desc: "인식이 정확" },
+  { key: "mix", label: "한국어 섞기", desc: "막힌 단어를 한국어로" },
+];
+
+// 흐름 유지 (기본) — 기획 문서 요구사항 5
+const FLOW_RULES = [
+  "- Unterbrich den Gesprächsfluss nicht mit Grammatikkorrekturen. Korrigiere während des Gesprächs nur, wenn du ihn wirklich nicht verstehst. " +
+    "Du darfst einen Fehler höchstens beiläufig richtig wiederholen (Recast), ohne ihn zu erklären. Die Auswertung kommt nach dem Gespräch.",
+];
+
+// 선생님 모드 (2026-10-31 추가) — 틀리면 바로 끊고 "이렇게 말하는 게 맞아요? 이걸 말하려던 거예요?" 하고 확인
+const TEACHER_RULES = [
+  "- LEHRER-MODUS: Wenn er einen wichtigen Fehler macht (Verbstellung, Kasus, Artikel, Zeitform, Konjugation, falsches Wort) " +
+    "oder du nicht sicher bist, was er meint, unterbrich freundlich, BEVOR du inhaltlich antwortest:",
+  "  1. Frag auf Koreanisch nach, ob du ihn richtig verstanden hast, und sag den korrekten deutschen Satz langsam und deutlich. " +
+    "Zum Beispiel: „혹시 이 말 하려던 거예요? — Ich habe die Pakete schon geliefert. 이렇게 말하는 게 맞아요.“",
+  "  2. Erkläre in EINEM kurzen koreanischen Satz, was falsch war (z. B. „동사는 두 번째 자리에 와요“).",
+  "  3. Bitte ihn, den richtigen Satz einmal laut nachzusprechen. Wenn er es (fast) richtig wiederholt, lobe kurz und mach mit dem Gespräch auf Deutsch weiter. " +
+    "Wenn er sagt, dass er etwas anderes meinte, frag nach und gib dann den passenden Satz.",
+  "- Pro Antwort höchstens EIN Fehler — der wichtigste. Kleine Fehler (Aussprache, ein Endungsfehler, der das Verständnis nicht stört) ignorierst du.",
+  "- Wenn ein Satz richtig war, korrigiere nicht und antworte ganz normal.",
+  "- Wenn du ihn nicht verstehst oder es klingt, als hätte er Koreanisch statt Deutsch gesprochen, frag auf Koreanisch nach " +
+    "(„잘 못 알아들었어요. 독일어로 한 번 더 말해 줄래요?“) oder rate, was er meinte, und frag, ob das stimmt.",
+];
+
 /**
  * Realtime 모델에게 줄 지시문. 서버(api/talk-token.js)가 그대로 세션에 넣는다.
- * 요구사항 1·3·5: 한국인 학습자 · 한국어 섞어 말해도 됨 · 대화 중엔 흐름 유지.
+ * 요구사항 1·3·5: 한국인 학습자 · 한국어 섞어 말해도 됨 · 대화 중엔 흐름 유지(style "flow") 또는 바로 교정(style "teacher").
  */
-export function talkInstructions(topicKey, { month = 1, extra = "" } = {}) {
+export function talkInstructions(topicKey, { month = 1, style = "flow", tone = "freundlich", extra = "" } = {}) {
   const t = topicOf(topicKey);
   const level = month <= 2 ? "B1" : month <= 4 ? "B1+/B2" : "B2";
   return [
@@ -65,13 +126,13 @@ export function talkInstructions(topicKey, { month = 1, extra = "" } = {}) {
     "",
     "Regeln:",
     `- Sprich Deutsch, natürlich und deutlich, auf Niveau ${level}. Kurze Antworten: 1–3 Sätze, dann eine Rückfrage, damit er viel spricht.`,
-    "- Unterbrich den Gesprächsfluss nicht mit Grammatikkorrekturen. Korrigiere während des Gesprächs nur, wenn du ihn wirklich nicht verstehst. " +
-      "Du darfst einen Fehler höchstens beiläufig richtig wiederholen (Recast), ohne ihn zu erklären. Die Auswertung kommt nach dem Gespräch.",
+    `- Tonfall: ${toneOf(tone).rule}`,
+    ...(style === "teacher" ? TEACHER_RULES : FLOW_RULES),
     "- Wenn er mitten im deutschen Satz ein koreanisches Wort benutzt (z. B. „Ich möchte 소포 abholen“), " +
       "nenne kurz das deutsche Wort mit Artikel („소포 – das Paket.“) und mach dann normal weiter.",
     "- Wenn er auf Koreanisch fragt, wie man etwas sagt, antworte ganz kurz auf Koreanisch mit dem deutschen Ausdruck und kehre dann zum Deutschen zurück. Erklärungen immer auf Koreanisch.",
     "- Wenn er „ähm“ sagt oder eine Pause macht, warte geduldig. Reagiere nicht auf Hintergrundgeräusche oder Gespräche anderer Leute.",
-    "- Sei warm und ermutigend, aber nicht übertrieben.",
+    "- Sei ermutigend, aber nicht übertrieben.",
     extra ? `\n${extra}` : "",
   ].join("\n").trim();
 }
@@ -135,8 +196,8 @@ export const RT_PRICING = {
   "gpt-realtime-2.1-mini": { audioIn: 10, audioCached: 0.3, audioOut: 20, textIn: 0.6, textCached: 0.06, textOut: 2.4 },
   "gpt-realtime-2.1": { audioIn: 32, audioCached: 0.4, audioOut: 64, textIn: 4, textCached: 0.4, textOut: 24 },
 };
-/** 받아쓰기 — 분당 (gpt-4o-mini-transcribe) */
-export const TRANSCRIBE_PER_MIN = 0.003;
+/** 받아쓰기 — 분당 (gpt-4o-transcribe 기준 — mini 를 써도 이 값으로 센다: 적게 세면 상한이 뚫린다) */
+export const TRANSCRIBE_PER_MIN = 0.006;
 
 const n = (v) => Number(v) || 0;
 
@@ -144,8 +205,8 @@ const n = (v) => Number(v) || 0;
 export function transcribeCost(usage) {
   if (!usage) return 0;
   if (usage.type === "duration") return (n(usage.seconds) / 60) * TRANSCRIBE_PER_MIN;
-  // gpt-4o-mini-transcribe 토큰 요금: 오디오 입력 $3 · 글 출력 $5 / 1M
-  return (n(usage.input_tokens) * 3 + n(usage.output_tokens) * 5) / 1_000_000;
+  // gpt-4o-transcribe 토큰 요금: 오디오 입력 $6 · 글 출력 $10 / 1M
+  return (n(usage.input_tokens) * 6 + n(usage.output_tokens) * 10) / 1_000_000;
 }
 
 /**

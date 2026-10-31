@@ -19,9 +19,18 @@ test("세션 설정: 누르고 말하기는 턴 감지를 끄고, 자동은 sema
   assert.deepEqual(auto.audio.input.turn_detection.type, "semantic_vad");
   assert.equal(auto.audio.input.turn_detection.eagerness, "low");
   assert.equal(auto.audio.input.noise_reduction.type, "near_field");
-  assert.equal(auto.audio.input.transcription.language, undefined); // 한국어 섞인 말도 받아 적게
+  assert.equal(auto.audio.input.transcription.language, "de"); // 기본은 독일어 고정 — 한국어로 잘못 받아 적지 않게
+  const mix = sessionConfig({ instructions: "x", mode: "auto", lang: "mix" }, opt);
+  assert.equal(mix.audio.input.transcription.language, undefined); // 한국어 섞기: 언어를 비워 섞인 한국어도
   assert.equal(auto.instructions.length, 6000);
   assert.equal(auto.model, "m");
+  assert.equal(auto.audio.output.voice, "v"); // 안 고르면 서버 기본
+  assert.equal(auto.audio.output.speed, 1);
+  const pick = sessionConfig({ instructions: "x", voice: "cedar", speed: 0.85 }, opt);
+  assert.equal(pick.audio.output.voice, "cedar");
+  assert.equal(pick.audio.output.speed, 0.85);
+  assert.equal(sessionConfig({ voice: "../hack", speed: 9 }, opt).audio.output.voice, "v");
+  assert.equal(sessionConfig({ speed: 9 }, opt).audio.output.speed, 1.5);
 });
 
 test("로그인 토큰 없이는 열쇠를 주지 않는다", async () => {

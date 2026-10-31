@@ -123,6 +123,11 @@ DE `Basiswortschatz_로드맵.md` 의 착수 전 항목 중 아래를 Alltag 가
 - 열쇠: 브라우저는 OpenAI 키를 모른다. `api/talk-token.js` 가 Supabase 로그인을 확인하고 **1분짜리 임시 열쇠**(client secret)를 받아 준다. 모델·지시문·턴 감지·받아쓰기 설정은 서버가 열쇠에 묶는다. Vercel 환경변수 `OPENAI_API_KEY`(필수) · `OPENAI_REALTIME_MODEL` · `OPENAI_REALTIME_VOICE` · `OPENAI_TRANSCRIBE_MODEL`
 - 저장(새 테이블 없음): 대화 한 번 = `alltag_entries` 한 줄(`template "talk"` · `input_mode "talk"`). 고른 틀린 곳은 `correction.data.b1.fixes` 로 → **오답 노트가 그대로 읽는다**(`forText` = 그 문장들). [Fokus DE 로도 보내기] 를 켜 두면 고른 문장이 단어장 Alltag(태그 B2-Programm · M<월> · Sprechen) → Karten, `progress.sentIds`+`keepEdited` 라 **오늘 🔴 3문장 꺼내기**에도 나온다. 대화록 전체는 `correction.talk`. 기록 탭(오늘·지난 기록)에는 안 보인다
 - 저장하면 🟡 말하기가 켜진다. 진입: 오늘 → 🟡 칸의 [🎙 대화]
+- **2026-10-31 추가 옵션** (고르기 화면, 기기에 기억):
+  - 교정 방식 — **흐름 유지**(기본, 끝나고 정리) / **선생님**: 중요한 오류 하나나 뜻이 애매하면 대답하기 전에 끊고 한국어로 “혹시 이 말 하려던 거예요? — <바른 문장> 이렇게 말하는 게 맞아요” → 한 문장 설명 → 한 번 따라 말하기 → 대화 계속. 한국어로 들리면 “독일어로 한 번 더”. 대화 중에도 바꿀 수 있다(지시문만 `session.update`)
+  - 인식 언어 — **독일어 고정**(기본, 받아쓰기 `language: "de"` — 독일어를 한국어로 받아 적던 문제) / 한국어 섞기(언어 비움). 대화 모델은 소리를 직접 들으므로 화면의 "인식된 내 말"·정리에만 영향. 받아쓰기 모델 기본을 `gpt-4o-transcribe` 로 올림(분당 약 $0.006)
+  - AI 목소리 — Marin · Coral · Sage(여성) · Cedar · Ash · Verse(남성). 서버가 허용 목록만 받는다. 세션을 열 때 정해짐
+  - 말투 — 친근하게 · 차분하게 · 활기차게 · 사무적으로(지시문 `Tonfall` 한 줄) · 빠르기 천천히(0.85) / 보통(`audio.output.speed`)
 - 정리 전에 닫혀도 대화록은 기기에 남는다(`fa-talk-last`) → 다음에 열면 [이어서 정리]. 정리가 실패하면 [다시 시도] · [정리 요청 복사](Claude 앱)
 
 ### 0-6. 프로필 — 같은 앱을 다른 학습 기준으로 (2026-10-10)
