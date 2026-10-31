@@ -24,7 +24,9 @@ const env = (...names) => {
 
 // 화면(src/lib/talk.js VOICES)에서 고를 수 있는 목소리 — 이 밖의 값은 기본 목소리로
 const VOICE_OK = new Set(["marin", "cedar", "coral", "sage", "ash", "verse", "alloy", "ballad", "echo", "shimmer"]);
-const MAX_INSTRUCTIONS = 6000; // 지시문 길이 상한 — 긴 글을 실어 보내 토큰을 쓰는 걸 막는다
+// 지시문 길이 상한 — 긴 글을 실어 보내 토큰을 쓰는 걸 막는다.
+// 운전 모드 + 이어서 + 선생님 + 발음이 겹치면 5,500자 안팎 — 잘리면 끝의 "설명은 한국어" 상기가 빠진다
+const MAX_INSTRUCTIONS = 8000;
 
 // 받아쓰기 힌트 — 고쳐 적지 말 것 (기획 요구사항 4)
 const TRANSCRIBE_EXACT = "Schreibe genau auf, was gesagt wurde – auch grammatische Fehler, falsche Artikel und Endungen. Nichts korrigieren.";

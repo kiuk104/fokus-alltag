@@ -171,3 +171,12 @@ test("발음: 정리 결과의 pron 을 읽고 기록에 남긴다", () => {
   assert.equal(parseReview('{"fixes":[]}').pron.length, 0);
   assert.match(reviewPromptFor("발음 연습"), /pron 을 중심으로/);
 });
+
+test("설명은 한국어: 언어 규칙이 맨 앞(상황 전)과 맨 끝에 있다 — 모든 주제", () => {
+  for (const k of TOPICS.map((t) => t.key)) {
+    const s = talkInstructions(k, { style: "teacher", pron: true, extra: "X" });
+    assert.ok(s.indexOf("SPRACHREGEL") < s.indexOf("Situation:"), k);
+    assert.match(s, /설명·교정·발음 팁/);
+    assert.match(s, /Erklärungen IMMER auf Koreanisch \(설명은 항상 한국어로\)[^\n]*$/);
+  }
+});

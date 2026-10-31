@@ -120,6 +120,16 @@ export const LANGS = [
   { key: "mix", label: "한국어 섞기", desc: "막힌 단어를 한국어로" },
 ];
 
+// 설명은 한국어 (2026-10-31) — 지시문이 독일어라 AI 가 설명까지 독일어로 하던 문제.
+// 맨 앞과 맨 끝에 두 번, 한국어로도 적는다(Realtime 모델은 지시문의 언어를 따라가기 쉽다).
+const LANG_RULE = [
+  "SPRACHREGEL (sehr wichtig): Das Gespräch/Rollenspiel und alle Beispielsätze sind auf DEUTSCH. " +
+    "ALLES, was du ERKLÄRST – Korrekturen, Grammatik, Aussprache-Tipps, Wortbedeutungen, Rückfragen wie „Meinst du …?“, Lob für eine Korrektur – sagst du auf KOREANISCH. " +
+    "Den richtigen deutschen Satz sagst du dabei auf Deutsch, eingebettet in den koreanischen Satz.",
+  "언어 규칙: 대화와 예문은 독일어로. 설명·교정·발음 팁·뜻 설명·“이 말 하려던 거예요?” 같은 확인은 반드시 한국어로 말한다. " +
+    "예: „동사는 두 번째 자리에 와요. ‘Heute habe ich viel gearbeitet.’ 이렇게요. 한 번 따라 해 볼래요?“",
+].join("\n");
+
 // 흐름 유지 (기본) — 기획 문서 요구사항 5
 const FLOW_RULES = [
   "- Unterbrich den Gesprächsfluss nicht mit Grammatikkorrekturen. Korrigiere während des Gesprächs nur, wenn du ihn wirklich nicht verstehst. " +
@@ -183,6 +193,7 @@ export function talkInstructions(topicKey, { month = 1, style = "flow", tone = "
   return [
     "Du bist ein freundlicher Gesprächspartner für einen koreanischen Erwachsenen, der Deutsch lernt " +
       `(Niveau ${level}). Er lebt seit Jahren in Deutschland und arbeitet als Lieferfahrer bei REWE.`,
+    LANG_RULE,
     `Situation: ${t.scene}`,
     `Beginne das Gespräch selbst: ${t.first}`,
     "",
@@ -192,12 +203,13 @@ export function talkInstructions(topicKey, { month = 1, style = "flow", tone = "
     ...(t.coach ? coachRules(sentences) : [...(style === "teacher" ? TEACHER_RULES : FLOW_RULES), ...(pron ? [PRON_RULE] : [])]),
     "- Wenn er mitten im deutschen Satz ein koreanisches Wort benutzt (z. B. „Ich möchte 소포 abholen“), " +
       "nenne kurz das deutsche Wort mit Artikel („소포 – das Paket.“) und mach dann normal weiter.",
-    "- Wenn er auf Koreanisch fragt, wie man etwas sagt, antworte ganz kurz auf Koreanisch mit dem deutschen Ausdruck und kehre dann zum Deutschen zurück. Erklärungen immer auf Koreanisch.",
+    "- Wenn er auf Koreanisch fragt, wie man etwas sagt, antworte ganz kurz auf Koreanisch mit dem deutschen Ausdruck und kehre dann zum Deutschen zurück.",
     "- Wenn er „ähm“ sagt oder eine Pause macht, warte geduldig. Reagiere nicht auf Hintergrundgeräusche oder Gespräche anderer Leute.",
     "- Reine Füllwörter („ähm“, „hmm“, „mhm“, koreanisch „음“, „으음“, „아“, „어“) sind KEINE Antwort und keine Unterbrechung – ignoriere sie und sprich ggf. einfach weiter. " +
       "Wenn seine Äußerung unvollständig klingt (endet mit einem Füllwort oder mitten im Satz), sag nur ganz kurz „Mhm?“ oder „Ja …?“ und lass ihn weiterreden.",
     "- Sei ermutigend, aber nicht übertrieben.",
     extra ? `\n${extra}` : "",
+    "\nNoch einmal: Erklärungen IMMER auf Koreanisch (설명은 항상 한국어로), Gespräch und Beispielsätze auf Deutsch.",
   ].join("\n").trim();
 }
 

@@ -28,7 +28,7 @@ test("세션 설정: 누르고 말하기는 턴 감지를 끄고, 자동은 sema
   assert.equal(auto.audio.input.transcription.language, "de"); // 기본은 독일어 고정 — 한국어로 잘못 받아 적지 않게
   const mix = sessionConfig({ instructions: "x", mode: "auto", lang: "mix" }, opt);
   assert.equal(mix.audio.input.transcription.language, undefined); // 한국어 섞기: 언어를 비워 섞인 한국어도
-  assert.equal(auto.instructions.length, 6000);
+  assert.equal(auto.instructions.length, 8000);
   assert.equal(auto.model, "m");
   assert.equal(auto.audio.output.voice, "v"); // 안 고르면 서버 기본
   assert.equal(auto.audio.output.speed, 1);
