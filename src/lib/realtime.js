@@ -143,6 +143,8 @@ export async function connectTalk({ instructions, mode = "auto", noise = "near",
       const msg = ev.error?.message || "알 수 없는 오류";
       // 너무 짧게 누르고 뗀 경우 — 무시해도 된다
       if (/buffer too small|buffer is empty/i.test(msg)) return;
+      // ✋ 멈추기·🔁 다시를 AI 가 말하지 않을 때 눌렀다 — 취소할 대답이 없을 뿐
+      if (/no active response|cancellation failed|not.*in progress/i.test(msg)) return;
       onError?.(`대화 오류: ${msg}`);
     }
     onEvent?.(ev);
@@ -200,6 +202,28 @@ export async function connectTalk({ instructions, mode = "auto", noise = "near",
       curMode = next;
       track.enabled = next !== "ptt";
       send({ type: "session.update", session: { type: "realtime", audio: { input: { turn_detection: turnDetection(next, guard) } } } });
+    },
+    /**
+     * ✋ AI 말 멈추기 (2026-10-31) — 추임새 무시로 말로는 못 끊으니 버튼으로.
+     * 지금 대답을 취소하고 나오던 소리를 비운다. 그다음은 내 차례 — 대답을 다시 부탁하지 않는다.
+     */
+    stopAI() {
+      if (closed) return;
+      pending = false;
+      send({ type: "response.cancel" });
+      send({ type: "output_audio_buffer.clear" });
+    },
+    /**
+     * 🔁 다시 / 🐢 천천히 — 내가 글로 부탁한 것처럼 대화에 넣고 대답을 부탁한다.
+     * 말하는 중이면 먼저 멈춘다.
+     */
+    ask(text) {
+      if (closed) return;
+      send({ type: "response.cancel" });
+      send({ type: "output_audio_buffer.clear" });
+      active = false;
+      send({ type: "conversation.item.create", item: { type: "message", role: "user", content: [{ type: "input_text", text }] } });
+      reply();
     },
     /** 지시문 바꾸기 — 교정 방식(흐름 유지 ↔ 선생님)을 대화 중에 바꿀 때 */
     setInstructions(text) {

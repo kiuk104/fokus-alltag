@@ -114,6 +114,10 @@ export function continueRule(lines, maxLines = 12) {
   );
 }
 
+/** 🔁 · 🐢 버튼이 AI 에게 보내는 부탁 (화면 Talk.jsx) */
+export const ASK_REPEAT = "(학습자가 버튼으로 부탁함) 방금 한 말을 한 번 더 말해 줘요. Bitte wiederhole deinen letzten Beitrag genau.";
+export const ASK_SLOW = "(학습자가 버튼으로 부탁함) 방금 한 말을 아주 천천히, 또박또박 다시 말해 줘요. Bitte wiederhole deinen letzten Beitrag ganz langsam und deutlich, mit Pausen zwischen den Wörtern.";
+
 /** 인식 언어 — 내 말 받아쓰기 */
 export const LANGS = [
   { key: "de", label: "독일어로 고정", desc: "인식이 정확" },

@@ -35,6 +35,8 @@
 .tk-who { font-size: 10.5px; font-weight: 700; color: var(--gold); letter-spacing: 0.2px; }
 .tk-text { font-family: var(--font-de); font-size: 15.5px; line-height: 1.5; white-space: pre-wrap; }
 
+.tk-ai-btns { display: flex; justify-content: center; gap: 6px; flex-wrap: wrap; margin-top: 8px; }
+.tk-ai-btns .tk-stop:not(:disabled) { border-color: var(--blue); color: var(--blue); font-weight: 800; }
 .tk-status { text-align: center; margin: 10px 0 8px; min-height: 1.5em; }
 .tk-ptt {
   display: block; width: 100%; max-width: 360px; margin: 0 auto; padding: 22px 0; border-radius: 999px;
@@ -48,12 +50,13 @@
 .tk-switches { display: flex; flex-direction: column; gap: 6px; }
 .tk-warn { color: var(--red); font-weight: 700; }
 
+/* 시작 버튼 두 개 — 나란히 */
+.tk-starts { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-top: 4px; }
+.tk-starts .tk-start { min-width: 0; padding: 14px 8px; font-size: 15px; font-weight: 800; }
+.tk-start-drive { border: 1.5px solid var(--gold); }
+.tk-starts-note { margin-top: -2px; }
+
 /* 🚗 운전 모드 — 크게, 멀리서 한눈에. 대화록은 안 보인다 */
-.tk-drive-card {
-  display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap;
-  padding: 12px 14px; border-radius: 14px; border: 1.5px solid var(--gold); background: var(--card);
-}
-.tk-drive-card > div { flex: 1; min-width: 180px; }
 .tk-drive { display: flex; flex-direction: column; align-items: center; gap: 18px; padding-top: 12px; }
 .tk-orb {
   width: min(64vw, 260px); aspect-ratio: 1; border-radius: 50%;
@@ -65,6 +68,8 @@
 .tk-orb.muted { border-color: var(--red); opacity: 0.75; }
 .tk-orb-icon { font-size: 54px; line-height: 1; }
 .tk-orb-text { font-size: 22px; font-weight: 800; }
+.tk-orb.tap { cursor: pointer; }
+.tk-orb-hint { font-size: 13px; font-weight: 700; color: var(--blue); }
 .tk-drive-clock { font-size: 40px; font-weight: 800; font-variant-numeric: tabular-nums; letter-spacing: 1px; }
 .tk-drive-note { font-size: 13px; color: var(--muted); text-align: center; max-width: 320px; line-height: 1.5; }
 .tk-drive-btns { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; width: 100%; max-width: 420px; }

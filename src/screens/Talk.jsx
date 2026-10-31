@@ -12,7 +12,7 @@ import { useCallback, useEffect, useReducer, useRef, useState } from "react";
 import { connectTalk, rtSupported } from "../lib/realtime";
 import { usageNow, pickModel, recordUsage, MONTHLY_CAP } from "../lib/ai";
 import {
-  TOPICS, STYLES, LANGS, VOICES, TONES, SPEEDS, DRIVE, DRIVE_RULE, continueRule, topicOf, talkInstructions, applyEvent, cleanLines, myLines, rtCost, transcribeCost, sumUsage,
+  ASK_REPEAT, ASK_SLOW, TOPICS, STYLES, LANGS, VOICES, TONES, SPEEDS, DRIVE, DRIVE_RULE, continueRule, topicOf, talkInstructions, applyEvent, cleanLines, myLines, rtCost, transcribeCost, sumUsage,
   TALK_MAX_MIN, TALK_WARN_MIN, clock,
 } from "../lib/talk";
 import TalkReview from "../components/TalkReview";
@@ -240,6 +240,9 @@ export default function Talk({ userId, today, month, onPatch, onClose, onError }
   };
 
   const toggleMute = () => { const m = !muted; setMuted(m); sess.current?.mute(m); };
+  // ✋ AI 말 멈추기 · 🔁 다시 · 🐢 천천히
+  const stopAI = () => { sess.current?.stopAI(); setAiTalking(false); };
+  const ask = (text) => { sess.current?.ask(text); };
 
   // 누르고 말하기 — 손가락 · 마우스 · 스페이스바
   const down = (e) => { e.preventDefault(); if (holding) return; setHolding(true); sess.current?.press(); };
@@ -283,11 +286,17 @@ export default function Talk({ userId, today, month, onPatch, onClose, onError }
 
         {phase === "live" && drive && (
           <section className="tk-drive">
-            <div className={`tk-orb ${status}`} aria-live="polite">
+            {/* AI 가 말하는 중이면 원 전체가 ✋ 멈춤 버튼 — 정차 중에 크게 누를 수 있게 */}
+            <div
+              className={`tk-orb ${status} ${status === "ai" ? "tap" : ""}`} aria-live="polite"
+              role={status === "ai" ? "button" : undefined}
+              onClick={status === "ai" ? stopAI : undefined}
+            >
               <span className="tk-orb-icon" aria-hidden>{status === "ai" ? "🔊" : status === "hear" ? "🎤" : status === "muted" ? "🔇" : "💬"}</span>
               <span className="tk-orb-text">
                 {status === "ai" ? "AI 가 말하는 중" : status === "hear" ? "듣는 중" : status === "muted" ? "마이크 꺼짐" : "말하세요"}
               </span>
+              {status === "ai" && <span className="tk-orb-hint">누르면 ✋ 멈춤</span>}
             </div>
             <div className={`tk-drive-clock ${warn ? "tk-warn" : ""}`}>{clock(TALK_MAX_MIN * 60 - sec)}</div>
             <p className="tk-drive-note">폰은 거치대에 두고, 손대지 마세요. 대답하기 어려우면 그냥 조용히 있어도 기다려요.</p>
@@ -312,6 +321,12 @@ export default function Talk({ userId, today, month, onPatch, onClose, onError }
                 </li>
               ))}
             </ul>
+
+            <div className="tk-ai-btns">
+              <button className="btn small tk-stop" disabled={!aiTalking} onClick={stopAI}>✋ 멈추기</button>
+              <button className="btn small" onClick={() => ask(ASK_REPEAT)}>🔁 다시</button>
+              <button className="btn small" onClick={() => ask(ASK_SLOW)}>🐢 천천히 다시</button>
+            </div>
 
             <div className="tk-status muted tiny">
               {aiTalking ? "🔊 AI 가 말하는 중" : holding ? "🎤 듣는 중 — 다 말하면 손을 떼세요" : hearing ? "🎤 듣는 중" : cfg.mode === "ptt" ? "버튼을 누르고 있는 동안 말해요" : muted ? "마이크 꺼짐" : "말하세요 — 잠깐 멈춰도 기다려 줘요"}
@@ -382,6 +397,7 @@ export default function Talk({ userId, today, month, onPatch, onClose, onError }
 function Setup({ pref, savePref, budget, last, connecting, onStart, onDrive, onResume, onDropLast, userId, today, onError }) {
   const ok = rtSupported();
   const [dropArmed, setDropArmed] = useState(false);
+  const canStart = ok && !connecting && !!budget && !budget.block;
   const hasLast = last && myLines(last.lines).length > 0;
   return (
     <section className="tk-setup">
@@ -403,15 +419,20 @@ function Setup({ pref, savePref, budget, last, connecting, onStart, onDrive, onR
         </div>
       )}
 
-      <div className="tk-drive-card">
-        <div>
-          <b>🚗 운전 모드</b>
-          <p className="muted tiny">손대지 않고 — 자동 차례 · 거치대 · 흐름 유지 · 차분하게 · 천천히. 화면엔 큰 상태 표시만. 주제·목소리는 아래 고른 대로.</p>
-        </div>
-        <button className="btn primary" disabled={!ok || connecting || !budget || !!budget.block} onClick={onDrive}>
-          {connecting ? "연결 중…" : "운전 모드로 시작"}
+      {/* 시작 버튼 두 개를 나란히 — 맨 위에서 바로 시작 (설정은 아래, 기기에 기억) */}
+      <div className="tk-starts">
+        <button className="btn primary tk-start" disabled={!canStart} onClick={onStart}>
+          {connecting ? "연결하는 중…" : "🎙 대화 시작"}
+        </button>
+        <button className="btn tk-start tk-start-drive" disabled={!canStart} onClick={onDrive}>
+          {connecting ? "연결하는 중…" : "🚗 운전 모드로 시작"}
         </button>
       </div>
+      <p className="muted tiny tk-starts-note">
+        🚗 운전 모드: 손대지 않고 — 자동 차례 · 거치대 · 흐름 유지 · 차분하게 · 천천히. 화면엔 큰 상태 표시만. 주제·목소리는 아래 고른 대로.
+      </p>
+      {budget?.block && <div className="notice soft">{budget.block}</div>}
+      {!ok && <div className="notice soft">이 브라우저는 실시간 대화를 못 해요. Chrome 이나 Safari 에서 열어 주세요.</div>}
 
       <div className="cr-label">주제</div>
       <div className="tk-topics">
@@ -505,12 +526,13 @@ function Setup({ pref, savePref, budget, last, connecting, onStart, onDrive, onR
         한 번에 최대 {TALK_MAX_MIN}분. 10분이면 대략 $0.1~0.3 이 들어요 (Claude 교정과 같은 이번 달 상한 ${MONTHLY_CAP}
         {budget ? ` 중 $${budget.spent.toFixed(2)} 사용` : ""}).
       </p>
-      {budget?.block && <div className="notice soft">{budget.block}</div>}
-      {!ok && <div className="notice soft">이 브라우저는 실시간 대화를 못 해요. Chrome 이나 Safari 에서 열어 주세요.</div>}
-
-      <div className="cr-actions">
-        <button className="btn primary tk-start" disabled={!ok || connecting || !budget || !!budget.block} onClick={onStart}>
+      {/* 아래에서 설정을 바꾼 뒤에도 바로 시작할 수 있게 같은 두 버튼 */}
+      <div className="tk-starts">
+        <button className="btn primary tk-start" disabled={!canStart} onClick={onStart}>
           {connecting ? "연결하는 중…" : "🎙 대화 시작"}
+        </button>
+        <button className="btn tk-start tk-start-drive" disabled={!canStart} onClick={onDrive}>
+          {connecting ? "연결하는 중…" : "🚗 운전 모드로 시작"}
         </button>
       </div>
 
