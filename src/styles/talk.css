@@ -47,6 +47,7 @@
 .tk-ptt.soft { background: var(--card); color: var(--ink); border: 1.5px solid var(--border); font-size: 15px; padding: 14px 0; animation: none; }
 .tk-row { display: flex; align-items: center; justify-content: space-between; gap: 10px; flex-wrap: wrap; margin-top: 14px; }
 .tk-chips { margin-top: 0; }
+.tk-topic-chips { justify-content: center; margin-top: 8px; }
 .tk-switches { display: flex; flex-direction: column; gap: 6px; }
 .tk-warn { color: var(--red); font-weight: 700; }
 

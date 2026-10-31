@@ -12,12 +12,12 @@ import { useCallback, useEffect, useReducer, useRef, useState } from "react";
 import { connectTalk, rtSupported } from "../lib/realtime";
 import { usageNow, pickModel, recordUsage, MONTHLY_CAP } from "../lib/ai";
 import {
-  ASK_REPEAT, ASK_SLOW, TOPICS, STYLES, LANGS, VOICES, TONES, SPEEDS, WAITS, waitMs, DRIVE, DRIVE_RULE, continueRule, topicOf, talkInstructions, applyEvent, cleanLines, myLines, rtCost, transcribeCost, sumUsage,
+  ASK_REPEAT, ASK_SLOW, TOPICS, SWITCHABLE, switchText, entryText, STYLES, LANGS, VOICES, TONES, SPEEDS, WAITS, waitMs, DRIVE, DRIVE_RULE, continueRule, topicOf, talkInstructions, applyEvent, cleanLines, myLines, rtCost, transcribeCost, sumUsage,
   TALK_MAX_MIN, TALK_WARN_MIN, clock,
 } from "../lib/talk";
 import TalkReview from "../components/TalkReview";
 import PastTalks from "../components/PastTalks";
-import { loadEntriesRange } from "../lib/entryRepo";
+import { loadEntriesRange, loadEntries } from "../lib/entryRepo";
 import { keptSentences } from "../lib/recall";
 import { addDays } from "../lib/program";
 import "../styles/listen.css";
@@ -37,7 +37,8 @@ export default function Talk({ userId, today, month, onPatch, onClose, onError }
   const [pref, setPref] = useState(() => ({ topic: "tag", mode: "auto", noise: "near", style: "flow", lang: "de", voice: "marin", tone: "freundlich", speed: "normal", filler: "ignore", wait: "normal", pron: false, ...readJson(PREF_KEY, {}) }));
   const [phase, setPhase] = useState("setup"); // setup | connecting | live | paused | review
   const [drive, setDrive] = useState(false); // 🚗 운전 모드 — 이번 대화에만
-  const [run, setRun] = useState({ topic: null, sentences: [] }); // 이번 대화의 주제·연습 문장 (발음 연습을 정리 화면에서 바로 열 때 주제가 바뀐다)
+  const [run, setRun] = useState({ topic: null, sentences: [], entry: "" }); // 이번 대화의 주제·연습 문장·오늘 쓴 글 (발음 연습을 정리 화면에서 바로 열 때 주제가 바뀐다)
+  const [todayText, setTodayText] = useState(null); // 📝 오늘 쓴 기록 — null 이면 아직 안 읽음
   const [lines, dispatch] = useReducer(linesReducer, []);
   const [budget, setBudget] = useState(null); // { spent, todayCalls, block }
   const [sec, setSec] = useState(0);
@@ -81,6 +82,16 @@ export default function Talk({ userId, today, month, onPatch, onClose, onError }
       .catch(() => alive && setBudget({ spent: 0, todayCalls: 0, block: "" }));
     return () => { alive = false; };
   }, [userId]);
+
+  // 📝 오늘 쓴 기록 — 주제를 고르면 그때 읽는다 (매번 읽지 않게)
+  useEffect(() => {
+    if (!topicOf(pref.topic).entry || todayText !== null) return;
+    let alive = true;
+    loadEntries(userId, today)
+      .then((rows) => alive && setTodayText(entryText(rows)))
+      .catch(() => alive && setTodayText(""));
+    return () => { alive = false; };
+  }, [pref.topic, todayText, userId, today]);
 
   const snapshot = (model) => ({
     lines: cleanLines(linesRef.current), topic: runRef.current.topic || pref.topic, seconds: total.current.sec, cost: total.current.cost, model, day: today,
@@ -215,7 +226,11 @@ export default function Talk({ userId, today, month, onPatch, onClose, onError }
       if (topicOf(tk).coach && !sentences) {
         try { sent = keptSentences(await loadEntriesRange(userId, addDays(today, -7), today)).slice(-8).map((s) => s.de); } catch { sent = []; }
       }
-      r = { topic: tk, sentences: sent };
+      let entry = "";
+      if (topicOf(tk).entry) {
+        try { entry = todayText ?? entryText(await loadEntries(userId, today)); } catch { entry = ""; }
+      }
+      r = { topic: tk, sentences: sent, entry };
       setRun(r);
       runRef.current = r;
     }
@@ -228,7 +243,7 @@ export default function Talk({ userId, today, month, onPatch, onClose, onError }
     setPhase("connecting");
     try {
       const s = await connectTalk({
-        instructions: talkInstructions(c.topic, { month, style: c.style, tone: c.tone, pron: c.pron, sentences: r.sentences, extra }),
+        instructions: talkInstructions(c.topic, { month, style: c.style, tone: c.tone, pron: c.pron, sentences: r.sentences, entry: r.entry, extra }),
         voice: c.voice,
         speed: SPEEDS.find((x) => x.key === c.speed)?.value || 1,
         mode: c.mode,
@@ -256,7 +271,17 @@ export default function Talk({ userId, today, month, onPatch, onClose, onError }
   // 교정 방식은 대화 중에도 바꾼다 — 지시문만 갈아 끼운다
   const setStyle = (style) => {
     savePref({ style });
-    sess.current?.setInstructions(talkInstructions(runRef.current.topic || pref.topic, { month, style, tone: pref.tone, pron: pref.pron, sentences: runRef.current.sentences }));
+    sess.current?.setInstructions(talkInstructions(runRef.current.topic || pref.topic, { month, style, tone: pref.tone, pron: pref.pron, sentences: runRef.current.sentences, entry: runRef.current.entry }));
+  };
+
+  // 주제 바꾸기 (대화 중, 2026-10-31) — 지시문을 새 장면으로 갈고, 글 부탁으로 "지금 바꿔" 를 넣는다. 말로 바꾸는 건 지시문 SWITCH_RULE 이 맡는다
+  const switchTopic = (key) => {
+    const r = { ...runRef.current, topic: key };
+    setRun(r);
+    runRef.current = r;
+    const c = drive ? { ...pref, ...DRIVE } : pref;
+    sess.current?.setInstructions(talkInstructions(key, { month, style: c.style, tone: c.tone, pron: c.pron, sentences: r.sentences, extra: drive ? DRIVE_RULE : "" }));
+    sess.current?.ask(switchText(key));
   };
 
   const setMode = (mode) => {
@@ -306,7 +331,7 @@ export default function Talk({ userId, today, month, onPatch, onClose, onError }
             onDrive={() => start({ driveMode: true })}
             onResume={() => { setResult(last); setPhase("review"); }}
             onDropLast={forgetLast}
-            userId={userId} today={today} onError={onError}
+            userId={userId} today={today} onError={onError} todayText={todayText}
           />
         )}
 
@@ -372,6 +397,15 @@ export default function Talk({ userId, today, month, onPatch, onClose, onError }
               </button>
             )}
 
+            {!topic.coach && (
+              <div className="chips tk-chips tk-topic-chips">
+                {SWITCHABLE.map((t) => (
+                  <button key={t.key} className={`chip ${topic.key === t.key ? "on" : ""}`} onClick={() => topic.key !== t.key && switchTopic(t.key)}>
+                    {t.icon} {t.label}
+                  </button>
+                ))}
+              </div>
+            )}
             <div className="tk-row">
               <div className="tk-switches">
                 <div className="chips tk-chips">
@@ -420,7 +454,7 @@ export default function Talk({ userId, today, month, onPatch, onClose, onError }
 }
 
 // ── ① 고르기 ─────────────────────────────────────────────────────────────────
-function Setup({ pref, savePref, budget, last, connecting, onStart, onDrive, onResume, onDropLast, userId, today, onError }) {
+function Setup({ pref, savePref, budget, last, connecting, onStart, onDrive, onResume, onDropLast, userId, today, onError, todayText }) {
   const ok = rtSupported();
   const [dropArmed, setDropArmed] = useState(false);
   const canStart = ok && !connecting && !!budget && !budget.block;
@@ -468,6 +502,17 @@ function Setup({ pref, savePref, budget, last, connecting, onStart, onDrive, onR
           </button>
         ))}
       </div>
+
+      {topicOf(pref.topic).entry && (
+        <p className="muted tiny">
+          {todayText === null
+            ? "오늘 쓴 기록을 읽는 중…"
+            : todayText
+              ? <>오늘 쓴 글로 이야기해요 — AI 가 그 일을 캐묻고, 왜 그랬는지·다음엔 어떻게 할지 묻습니다. <span lang="de">„{todayText.slice(0, 80)}{todayText.length > 80 ? "…" : ""}“</span></>
+              : "오늘 쓴 기록이 아직 없어요 — 지금 시작하면 ☀ 오늘 하루 주제로 이야기해요. 🟡 기록을 먼저 쓰면 그 글로 이야기해요."}
+        </p>
+      )}
+      <p className="muted tiny">대화 중에도 주제를 바꿀 수 있어요 — 화면의 주제 칩을 누르거나, 말로 “손님 역할 해 줘” 하면 돼요.</p>
 
       {topicOf(pref.topic).coach && (
         <p className="muted tiny">

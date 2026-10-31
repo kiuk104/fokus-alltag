@@ -2,7 +2,7 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 import {
   applyEvent, cleanLines, linesToText, myLines, rtCost, transcribeCost, sumUsage, parseReview, keepRows, talkEntry,
-  defaultPicked, toggleMisheard, misheardOf, looksUnfinished, waitMs, talkInstructions, TOPICS, clock, reviewPrompt,
+  defaultPicked, toggleMisheard, misheardOf, looksUnfinished, waitMs, entryText, switchText, SWITCHABLE, SWITCH_RULE, talkInstructions, TOPICS, clock, reviewPrompt,
 } from "./talk.js";
 const reviewPromptFor = (label) => reviewPrompt([{ who: "me", text: "Hallo" }], { topicLabel: label });
 import { collectItems } from "./drill.js";
@@ -127,6 +127,29 @@ test("인식 오류: 표시하면 고르기에서 빠지고 기록에만 남는�
   // 옛 picked(mis 없음)도 터지지 않는다
   const old = { fixes: [true, true], korean: [true], phrases: [] };
   assert.equal(toggleMisheard(old, "korean", 0).korean[0], false);
+});
+
+test("오늘 쓴 기록 주제: 글을 장면에 붙이고, 없으면 오늘 하루로", () => {
+  const entries = [
+    { template: "expand", raw_text: "[Level 1] Heute war ich bei REWE.\n[Level 2] Ich war müde, weil …", correction: null },
+    { template: "talk", raw_text: "nicht das" },
+    { template: "expand", raw_text: "[x] roh", correction: { data: { b1: { text: "Korrigiert." } } } },
+  ];
+  const t = entryText(entries);
+  assert.equal(t, "Heute war ich bei REWE.\nIch war müde, weil …\n\nKorrigiert.");
+  assert.ok(entryText(entries, 10).endsWith(" …"));
+  const s = talkInstructions("heute", { entry: t });
+  assert.match(s, /Lerntagebuch geschrieben/);
+  assert.match(s, /Heute war ich bei REWE/);
+  assert.match(s, /Situation: Der Lernende hat heute/);
+  // 글이 없으면 오늘 하루
+  assert.match(talkInstructions("heute", { entry: "" }), /Situation: Ihr unterhaltet euch locker/);
+  // 주제 바꾸기 규칙은 모든 일반 대화에, 발음 연습에는 없다
+  assert.match(talkInstructions("tag"), /Themenwechsel/);
+  assert.doesNotMatch(talkInstructions("aussprache"), /Themenwechsel/);
+  assert.ok(!SWITCHABLE.some((x) => x.key === "aussprache" || x.key === "heute"));
+  assert.match(switchText("kunde"), /Wechsle jetzt das Thema.*Kundin/);
+  assert.match(SWITCH_RULE, /freies Gespräch/);
 });
 
 test("말 끝 기다리기: 덜 끝난 모양을 알아본다", () => {

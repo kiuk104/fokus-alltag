@@ -38,6 +38,12 @@ export const TOPICS = [
     first: "Meld dich am Telefon mit dem Namen der Praxis/Werkstatt.",
   },
   {
+    // 📝 오늘 쓴 기록 (2026-10-31) — "내 하루가 교재" 원칙. 🟡 쓰기의 글을 지시문에 붙여 그 일로 이야기한다. scene 은 entryScene() 이 글로 만든다
+    key: "heute", icon: "📝", label: "오늘 쓴 기록", entry: true,
+    scene: "Ihr sprecht über das, was er heute in sein Lerntagebuch geschrieben hat.",
+    first: "Greif etwas aus seinem Text auf und frag neugierig nach.",
+  },
+  {
     key: "frei", icon: "💬", label: "자유 주제",
     scene: "Freies Gespräch. Der Lernende bestimmt das Thema.",
     first: "Frag ihn, worüber er heute sprechen möchte.",
@@ -50,6 +56,44 @@ export const TOPICS = [
   },
 ];
 export const topicOf = (key) => TOPICS.find((t) => t.key === key) || TOPICS[0];
+
+/** 대화 중에 바꿀 수 있는 주제 — 발음 연습(지시문이 통째로 다름)과 오늘 기록(글이 필요)은 뺀다 */
+export const SWITCHABLE = TOPICS.filter((t) => !t.coach && !t.entry);
+
+/**
+ * 📝 오늘 쓴 기록 → 장면 글 (2026-10-31). entries: 오늘 alltag_entries(대화 기록 제외).
+ * 교정이 있으면 고친 글(b1)을, 없으면 쓴 그대로. "[Level 1]" 같은 칸 이름은 뗀다. 너무 길면 maxChars 에서 자른다.
+ */
+export function entryText(entries, maxChars = 1200) {
+  const texts = (entries || [])
+    .filter((e) => e && e.template !== TALK_TEMPLATE)
+    .map((e) => e.correction?.data?.b1?.text || e.raw_text || "")
+    .map((t) => String(t).split("\n").map((l) => l.replace(/^\[[^\]]+\]\s*/, "").trim()).filter(Boolean).join("\n"))
+    .filter(Boolean);
+  const joined = texts.join("\n\n").trim();
+  return joined.length > maxChars ? joined.slice(0, maxChars) + " …" : joined;
+}
+export function entryScene(text) {
+  return (
+    "Der Lernende hat heute Folgendes in sein Lerntagebuch geschrieben (sein eigener Text, evtl. mit Fehlern – zitiere die Fehler nicht, sprich einfach über den Inhalt):\n" +
+    `„${text}“\n` +
+    "Sprich mit ihm über genau diese Erlebnisse: frag nach Einzelheiten, nach dem Warum, nach Gefühlen und was er beim nächsten Mal anders machen würde. Bleib bei seinem Tag, erfinde keine fremde Situation."
+  );
+}
+
+/**
+ * 주제 바꾸기 (2026-10-31)
+ *  · 말로: 지시문의 SWITCH_RULE — "손님 역할 해 줘" 하면 AI 가 그 자리에서 장면을 바꾼다 (운전 모드에서도 됨)
+ *  · 버튼: switchText(key) 를 글 부탁으로 넣는다 (realtime.js ask) + setInstructions 로 지시문도 새 장면으로
+ */
+export const SWITCH_RULE =
+  "- Themenwechsel: Wenn er mitten im Gespräch ein anderes Thema oder Rollenspiel vorschlägt (z. B. „Lass uns Kunde spielen“, „손님 역할 해 줘“, „Jetzt Telefon“), " +
+  "wechsle sofort und ohne Rückfrage: übernimm die neue Rolle/Situation und mach weiter. Mögliche Szenen: " +
+  SWITCHABLE.map((t) => `${t.label === "자유 주제" ? "freies Gespräch" : t.scene.replace(/^Rollenspiel( am Telefon)?: /, "").split(". ")[0]}`).join(" / ") + ".";
+export const switchText = (key) => {
+  const t = topicOf(key);
+  return `(학습자가 버튼으로 주제를 바꿈) Wechsle jetzt das Thema. ${t.scene} ${t.first} Keine lange Überleitung – ein Satz, dann geht es los.`;
+};
 
 /** 한 번 대화의 길이 상한(분) — 넘으면 저절로 끝낸다. 돈이 새지 않게 + 하루 20분 프로그램 */
 export const TALK_MAX_MIN = 10;
@@ -191,8 +235,10 @@ const PRON_RULE =
  * Realtime 모델에게 줄 지시문. 서버(api/talk-token.js)가 그대로 세션에 넣는다.
  * 요구사항 1·3·5: 한국인 학습자 · 한국어 섞어 말해도 됨 · 대화 중엔 흐름 유지(style "flow") 또는 바로 교정(style "teacher").
  */
-export function talkInstructions(topicKey, { month = 1, style = "flow", tone = "freundlich", pron = false, sentences = [], extra = "" } = {}) {
-  const t = topicOf(topicKey);
+export function talkInstructions(topicKey, { month = 1, style = "flow", tone = "freundlich", pron = false, sentences = [], entry = "", extra = "" } = {}) {
+  const t0 = topicOf(topicKey);
+  // 📝 오늘 쓴 기록: 글이 있으면 그 글이 장면, 없으면 "오늘 하루"로 (화면이 미리 알려 준다)
+  const t = t0.entry ? (entry ? { ...t0, scene: entryScene(entry) } : topicOf("tag")) : t0;
   const level = month <= 2 ? "B1" : month <= 4 ? "B1+/B2" : "B2";
   return [
     "Du bist ein freundlicher Gesprächspartner für einen koreanischen Erwachsenen, der Deutsch lernt " +
@@ -204,7 +250,7 @@ export function talkInstructions(topicKey, { month = 1, style = "flow", tone = "
     "Regeln:",
     `- Sprich Deutsch, natürlich und deutlich, auf Niveau ${level}. Kurze Antworten: 1–3 Sätze, dann eine Rückfrage, damit er viel spricht.`,
     `- Tonfall: ${toneOf(tone).rule}`,
-    ...(t.coach ? coachRules(sentences) : [...(style === "teacher" ? TEACHER_RULES : FLOW_RULES), ...(pron ? [PRON_RULE] : [])]),
+    ...(t.coach ? coachRules(sentences) : [...(style === "teacher" ? TEACHER_RULES : FLOW_RULES), ...(pron ? [PRON_RULE] : []), SWITCH_RULE]),
     "- Wenn er mitten im deutschen Satz ein koreanisches Wort benutzt (z. B. „Ich möchte 소포 abholen“), " +
       "nenne kurz das deutsche Wort mit Artikel („소포 – das Paket.“) und mach dann normal weiter.",
     "- Wenn er auf Koreanisch fragt, wie man etwas sagt, antworte ganz kurz auf Koreanisch mit dem deutschen Ausdruck und kehre dann zum Deutschen zurück.",
