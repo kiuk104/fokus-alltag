@@ -14,7 +14,7 @@ import { loadSentenceTags, tagsFor, insertSentences, NOTEBOOK } from "../lib/deW
 import { speakText, stopSpeaking } from "../lib/audio";
 import { KARTEN_URL, openApp } from "../lib/links";
 import {
-  REVIEW_SYSTEM, reviewPrompt, parseReview, defaultPicked, keepRows, talkEntry, topicOf, myLines, clock,
+  REVIEW_SYSTEM, reviewPrompt, parseReview, defaultPicked, toggleMisheard, keepRows, talkEntry, topicOf, myLines, clock,
 } from "../lib/talk";
 
 const TALK_TAG = "Sprechen";
@@ -56,8 +56,12 @@ export default function TalkReview({ result, userId, today, month, onSaved, onDi
   }, [tries]);
 
   const flip = (group, i) => setPicked((p) => ({ ...p, [group]: p[group].map((v, j) => (j === i ? !v : v)) }));
+  // 인식 오류 (2026-10-31) — 음성 인식이 잘못 적은 것은 내 실수가 아니다 → 오답 노트에 들어가면 안 한 실수를 연습하게 된다
+  const mis = (group, i) => setPicked((p) => toggleMisheard(p, group, i));
+  const isMis = (group, i) => !!picked?.mis?.[group]?.[i];
   const rows = useMemo(() => (review && picked ? keepRows(review, picked) : []), [review, picked]);
   const nFix = picked ? picked.fixes.filter(Boolean).length : 0;
+  const nMis = picked?.mis ? [...picked.mis.fixes, ...picked.mis.korean].filter(Boolean).length : 0;
   const total = picked ? [...picked.fixes, ...picked.korean, ...picked.phrases].filter(Boolean).length : 0;
 
   const save = async () => {
@@ -184,12 +188,18 @@ export default function TalkReview({ result, userId, today, month, onSaved, onDi
       {fixes.length > 0 && (
         <>
           <div className="cr-label">틀린 문장 <span className="muted">— 인식된 내 말 → 고친 문장</span></div>
+          <p className="muted tiny">내가 한 말이 아니라 음성 인식이 잘못 적은 것이면 [인식 오류] — 오답 노트에 안 들어가요.</p>
           <ul className="tk-items">
             {fixes.map((f, i) => (
               <li key={i} className={picked.fixes[i] ? "" : "off"}>
-                <label className="cr-on"><input type="checkbox" checked={picked.fixes[i]} onChange={() => flip("fixes", i)} /></label>
+                <label className="cr-on"><input type="checkbox" checked={picked.fixes[i]} disabled={isMis("fixes", i)} onChange={() => flip("fixes", i)} /></label>
                 <div className="tk-item">
-                  <p className="tk-said" lang="de">{f.from ? <Marked text={f.said} part={f.from} cls="tk-wrong" /> : f.said}</p>
+                  <p className="tk-said" lang="de">
+                    {f.from ? <Marked text={f.said} part={f.from} cls="tk-wrong" /> : f.said}
+                    <button className={`tk-mis ${isMis("fixes", i) ? "on" : ""}`} onClick={() => mis("fixes", i)}>
+                      {isMis("fixes", i) ? "✓ 인식 오류" : "인식 오류"}
+                    </button>
+                  </p>
                   <p className="tk-better" lang="de">
                     {f.to ? <Marked text={f.better} part={f.to} cls="tk-right" /> : f.better}
                     <button className="tk-play" onClick={() => speakText(f.better)} aria-label="발음 듣기">🔊</button>
@@ -209,9 +219,14 @@ export default function TalkReview({ result, userId, today, month, onSaved, onDi
           <ul className="tk-items">
             {korean.map((k, i) => (
               <li key={i} className={picked.korean[i] ? "" : "off"}>
-                <label className="cr-on"><input type="checkbox" checked={picked.korean[i]} onChange={() => flip("korean", i)} /></label>
+                <label className="cr-on"><input type="checkbox" checked={picked.korean[i]} disabled={isMis("korean", i)} onChange={() => flip("korean", i)} /></label>
                 <div className="tk-item">
-                  <p className="tk-ko"><span>{k.ko}</span> → <b lang="de">{k.de}</b></p>
+                  <p className="tk-ko">
+                    <span>{k.ko}</span> → <b lang="de">{k.de}</b>
+                    <button className={`tk-mis ${isMis("korean", i) ? "on" : ""}`} onClick={() => mis("korean", i)}>
+                      {isMis("korean", i) ? "✓ 인식 오류" : "인식 오류"}
+                    </button>
+                  </p>
                   {k.better && (
                     <p className="tk-better" lang="de">
                       {k.better}
@@ -278,7 +293,10 @@ export default function TalkReview({ result, userId, today, month, onSaved, onDi
         <input type="checkbox" checked={toDe} onChange={(e) => setToDe(e.target.checked)} />
         고른 문장을 Fokus DE 로도 보내기 <span className="muted tiny">({rows.length}문장 → 단어장 {NOTEBOOK} · Karten 복습)</span>
       </label>
-      <p className="muted tiny">틀린 곳 {nFix}개는 오답 노트로 들어가요.</p>
+      <p className="muted tiny">
+        틀린 곳 {nFix}개는 오답 노트로 들어가요.
+        {nMis > 0 && ` 인식 오류 ${nMis}개는 빼고, 기록에만 남겨요.`}
+      </p>
 
       <div className="cr-actions">
         <button className="btn" onClick={onDiscard} disabled={state === "saving"}>저장 안 함</button>

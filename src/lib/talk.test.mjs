@@ -2,7 +2,7 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 import {
   applyEvent, cleanLines, linesToText, myLines, rtCost, transcribeCost, sumUsage, parseReview, keepRows, talkEntry,
-  defaultPicked, talkInstructions, TOPICS, clock, reviewPrompt,
+  defaultPicked, toggleMisheard, misheardOf, talkInstructions, TOPICS, clock, reviewPrompt,
 } from "./talk.js";
 const reviewPromptFor = (label) => reviewPrompt([{ who: "me", text: "Hallo" }], { topicLabel: label });
 import { collectItems } from "./drill.js";
@@ -104,6 +104,29 @@ test("저장: 고른 틀린 곳은 오답 노트로, 보낸 문장은 3문장 �
   const sent = { id: 7, ...e, correction: { ...e.correction, progress: { saved: true, sentIds: ["u1", "u2"], keepEdited: rows.slice(0, 2).map((r) => ({ de: r.de, ko: r.ko, on: true })) } } };
   const kept = keptSentences([sent]);
   assert.deepEqual(kept.map((k) => k.de), ["Ich habe viele Pakete geliefert.", "Gestern war ich müde."]);
+});
+
+test("인식 오류: 표시하면 고르기에서 빠지고 기록에만 남는다", () => {
+  const review = parseReview(REVIEW);
+  let picked = defaultPicked(review);
+  assert.deepEqual(picked.mis.fixes, [false, false]);
+  picked = toggleMisheard(picked, "fixes", 0);
+  assert.equal(picked.fixes[0], false);
+  assert.equal(picked.mis.fixes[0], true);
+  // 오답 노트·DE 로 안 간다
+  const rows = keepRows(review, picked);
+  assert.ok(!rows.some((r) => r.de === "Ich habe viele Pakete geliefert."));
+  const e = talkEntry({ day: "d", month: 1, topic: "tag", lines: [], review, picked, seconds: 1, cost: 0, model: "m" });
+  assert.equal(e.correction.data.b1.fixes.length, 0);
+  assert.deepEqual(e.correction.talk.misheard.fixes, ["Ich habe viel Paket geliefert."]);
+  assert.deepEqual(misheardOf(review, picked).korean, []);
+  // 다시 끄면 고른 상태로 돌아온다
+  picked = toggleMisheard(picked, "fixes", 0);
+  assert.equal(picked.fixes[0], true);
+  assert.equal(picked.mis.fixes[0], false);
+  // 옛 picked(mis 없음)도 터지지 않는다
+  const old = { fixes: [true, true], korean: [true], phrases: [] };
+  assert.equal(toggleMisheard(old, "korean", 0).korean[0], false);
 });
 
 test("지시문: 주제 상황과 '대화 중 교정하지 않기'가 들어간다", () => {

@@ -67,6 +67,12 @@ export default function Talk({ userId, today, month, onPatch, onClose, onError }
 
   const savePref = (patch) => setPref((p) => { const n = { ...p, ...patch }; writeJson(PREF_KEY, n); return n; });
 
+  /** 이번 구간의 비용을 한 줄로 남긴다. 사용량이 하나도 없으면(연결만 하고 끊김) 줄을 안 남긴다 — 하루 20회를 갉지 않게 */
+  const recordSegment = (uid, model) => {
+    if (!usages.current.length && cost.current <= 0) return;
+    recordUsage(uid, { provider: "openai", model, kind: "alltag-talk", usage: sumUsage(usages.current), cost: cost.current });
+  };
+
   // 남은 예산 — 상한에 닿았으면 시작 버튼을 막는다
   useEffect(() => {
     let alive = true;
@@ -92,7 +98,7 @@ export default function Talk({ userId, today, month, onPatch, onClose, onError }
     try { wake.current?.release(); } catch { /* 이미 풀림 */ }
     total.current.sec += Math.round((Date.now() - startedAt.current) / 1000);
     total.current.cost += cost.current;
-    recordUsage(userId, { provider: "openai", model: s.model, kind: "alltag-talk", usage: sumUsage(usages.current), cost: cost.current });
+    recordSegment(userId, s.model);
     const r = snapshot(s.model);
     writeJson(LAST_KEY, r);
     setAiTalking(false);
@@ -118,12 +124,24 @@ export default function Talk({ userId, today, month, onPatch, onClose, onError }
     sess.current = null;
     s.close();
     const c = ctx.current;
-    recordUsage(c.userId, { provider: "openai", model: s.model, kind: "alltag-talk", usage: sumUsage(usages.current), cost: cost.current });
+    recordSegment(c.userId, s.model);
     writeJson(LAST_KEY, {
-      lines: cleanLines(linesRef.current), topic: c.topic, seconds: total.current.sec,
+      lines: cleanLines(linesRef.current), topic: c.topic,
+      seconds: total.current.sec + Math.round((Date.now() - startedAt.current) / 1000),
       cost: total.current.cost + cost.current, model: s.model, day: c.today,
     });
   }, []);
+
+  // 화면이 잠겼다 돌아오면 wake lock 은 저절로 풀려 있다 → 대화 중이면 다시 잡는다 (운전 모드에서 화면이 꺼지면 iOS 는 마이크도 끊는다)
+  useEffect(() => {
+    if (phase !== "live") return;
+    const back = async () => {
+      if (document.visibilityState !== "visible" || !sess.current) return;
+      try { wake.current = await navigator.wakeLock?.request("screen"); } catch { /* 지원 안 함 */ }
+    };
+    document.addEventListener("visibilitychange", back);
+    return () => document.removeEventListener("visibilitychange", back);
+  }, [phase]);
 
   // 시계 + 10분 상한 — 끝나면 정리로 바로 가지 않고 "이어서 10분" 을 기다린다
   useEffect(() => {
@@ -179,6 +197,13 @@ export default function Talk({ userId, today, month, onPatch, onClose, onError }
    */
   const start = async ({ driveMode = drive, cont = false, topicKey = null, sentences = null } = {}) => {
     setErr("");
+    // 상한은 시작할 때마다 다시 본다 — 이어서 10분·한 번 더를 반복해도 이번 달 상한·하루 횟수를 넘지 않게
+    try {
+      const u = await usageNow(userId);
+      const pick = pickModel(u);
+      setBudget({ ...u, block: pick.model ? "" : pick.reason });
+      if (!pick.model) { setErr(pick.reason); return; }
+    } catch { /* 조회 실패는 막지 않는다 — 서버 쪽 한도가 최후 방어선 */ }
     let r = runRef.current;
     if (!cont) {
       dispatch("reset");

@@ -49,6 +49,8 @@ export const turnDetection = (mode, guard = true) =>
 
 /** 받아쓰기가 이만큼 안 오면 그냥 대답한다 (추임새 판정을 못 해도 대화가 멈추지 않게) */
 const GUARD_WAIT_MS = 2500;
+/** 연결이 "disconnected" 로 떨어진 뒤 이만큼 안에 돌아오면 끊긴 것으로 치지 않는다 */
+const DROP_GRACE_MS = 6000;
 
 /**
  * 연결한다. 반환: 세션 객체 { model, press(), release(), setMode(), close(), mute() }
@@ -76,7 +78,12 @@ export async function connectTalk({ instructions, mode = "auto", noise = "near",
   const pc = new RTCPeerConnection();
   const audio = new Audio();
   audio.autoplay = true;
-  pc.ontrack = (e) => { audio.srcObject = e.streams[0]; };
+  audio.setAttribute("playsinline", ""); // iOS: 전체 화면 플레이어로 튀지 않게
+  pc.ontrack = (e) => {
+    audio.srcObject = e.streams[0];
+    // iOS Safari 는 autoplay 만으로 안 틀 때가 있다 — 시작 버튼(사용자 동작) 안에서 열렸으니 play 가 허용된다
+    audio.play().catch(() => { /* 자동 재생이 막히면 onconnectionstatechange 뒤에 다시 시도 */ });
+  };
   pc.addTrack(track, mic);
 
   const dc = pc.createDataChannel("oai-events");
@@ -149,10 +156,23 @@ export async function connectTalk({ instructions, mode = "auto", noise = "near",
     }
     onEvent?.(ev);
   };
+  // 끊김 판정 (2026-10-31) — "disconnected" 는 터널·지하 주차장에서 잠깐 왔다가 돌아오는 일이 흔하다.
+  // 바로 닫지 않고 DROP_GRACE_MS 만큼 기다려 돌아오면 그대로 간다. "failed" 는 바로 닫는다.
+  let dropTimer = null;
+  const drop = () => {
+    if (closed) return;
+    onError?.("연결이 끊겼어요. 신호가 약한 곳일 수 있어요.");
+    session?.close();
+  };
   pc.onconnectionstatechange = () => {
-    if (["failed", "disconnected"].includes(pc.connectionState) && !closed) {
-      onError?.("연결이 끊겼어요. 신호가 약한 곳일 수 있어요.");
-      session?.close();
+    const st = pc.connectionState;
+    if (st === "connected") {
+      if (dropTimer) { clearTimeout(dropTimer); dropTimer = null; }
+      audio.play().catch(() => { /* 이미 재생 중 */ });
+    } else if (st === "failed") {
+      drop();
+    } else if (st === "disconnected" && !dropTimer) {
+      dropTimer = setTimeout(drop, DROP_GRACE_MS);
     }
   };
 
@@ -237,6 +257,7 @@ export async function connectTalk({ instructions, mode = "auto", noise = "near",
     close() {
       if (closed) return;
       closed = true;
+      if (dropTimer) clearTimeout(dropTimer);
       waits.forEach((t) => clearTimeout(t));
       try { dc.close(); } catch { /* 이미 닫힘 */ }
       try { pc.close(); } catch { /* 이미 닫힘 */ }

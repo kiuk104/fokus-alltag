@@ -109,3 +109,10 @@
 .tk-past-del .btn.danger { border-color: var(--red); color: var(--red); font-weight: 700; }
 .tk-last-btns { display: flex; gap: 6px; }
 .tk-last .btn.danger { border-color: var(--red); color: var(--red); font-weight: 700; }
+
+/* 인식 오류 표시 (TalkReview) — 내가 한 말이 아니라 음성 인식이 잘못 적은 것 */
+.tk-mis {
+  margin-left: 8px; padding: 1px 7px; border-radius: 999px; font-size: 11px; font-family: inherit;
+  border: 1px solid var(--border); background: transparent; color: var(--muted); cursor: pointer; vertical-align: middle;
+}
+.tk-mis.on { border-color: var(--red); color: var(--red); font-weight: 700; }

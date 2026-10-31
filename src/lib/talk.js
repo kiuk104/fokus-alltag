@@ -456,18 +456,44 @@ export function talkEntry({ day, month, topic, lines, review, picked, seconds, c
         summary: review.summary,
         fixes, korean: review.korean.filter((k, i) => picked.korean?.[i]), phrases: review.phrases.filter((p, i) => picked.phrases?.[i]),
         pron: review.pron || [],
+        misheard: misheardOf(review, picked),
       },
       progress: {},
     },
   };
 }
 
-/** 처음 고르기 상태 — 틀린 문장·한국어는 다 켜고, 새 표현은 앞 3개만 */
+/**
+ * 처음 고르기 상태 — 틀린 문장·한국어는 다 켜고, 새 표현은 앞 3개만.
+ * mis(2026-10-31): "인식 오류" 표시 — 음성 인식이 잘못 적어서 생긴 가짜 오류. 켜면 picked 도 꺼진다(오답 노트·DE 로 안 감).
+ * 그냥 체크를 끈 것(맞는 교정이지만 안 외움)과 구분해 기록에 남긴다 → 인식이 얼마나 틀리는지 나중에 센다.
+ */
 export function defaultPicked(review) {
   return {
     fixes: review.fixes.map(() => true),
     korean: review.korean.map(() => true),
     phrases: review.phrases.map((_, i) => i < 3),
+    mis: { fixes: review.fixes.map(() => false), korean: review.korean.map(() => false) },
+  };
+}
+
+/** 인식 오류 표시를 켜고 끈다 — 켜면 고르기에서 빠지고, 끄면 다시 고른 상태로 */
+export function toggleMisheard(picked, group, i) {
+  const mis = picked.mis || { fixes: [], korean: [] };
+  const on = !mis[group]?.[i];
+  return {
+    ...picked,
+    [group]: picked[group].map((v, j) => (j === i ? !on : v)),
+    mis: { ...mis, [group]: (mis[group] || picked[group].map(() => false)).map((v, j) => (j === i ? on : v)) },
+  };
+}
+
+/** 인식 오류로 표시한 문장들 — 기록용 { fixes: [said…], korean: [said…] } */
+export function misheardOf(review, picked) {
+  const mis = picked.mis || {};
+  return {
+    fixes: review.fixes.filter((_, i) => mis.fixes?.[i]).map((f) => f.said),
+    korean: review.korean.filter((_, i) => mis.korean?.[i]).map((k) => k.said),
   };
 }
 
