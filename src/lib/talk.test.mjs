@@ -2,7 +2,7 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 import {
   applyEvent, cleanLines, linesToText, myLines, rtCost, transcribeCost, sumUsage, parseReview, keepRows, talkEntry,
-  defaultPicked, toggleMisheard, misheardOf, talkInstructions, TOPICS, clock, reviewPrompt,
+  defaultPicked, toggleMisheard, misheardOf, looksUnfinished, waitMs, talkInstructions, TOPICS, clock, reviewPrompt,
 } from "./talk.js";
 const reviewPromptFor = (label) => reviewPrompt([{ who: "me", text: "Hallo" }], { topicLabel: label });
 import { collectItems } from "./drill.js";
@@ -127,6 +127,17 @@ test("인식 오류: 표시하면 고르기에서 빠지고 기록에만 남는�
   // 옛 picked(mis 없음)도 터지지 않는다
   const old = { fixes: [true, true], korean: [true], phrases: [] };
   assert.equal(toggleMisheard(old, "korean", 0).korean[0], false);
+});
+
+test("말 끝 기다리기: 덜 끝난 모양을 알아본다", () => {
+  for (const t of ["Ich war gestern bei dem Kunden und", "Weil ich,", "Ich habe heute…", "그리고", "Ich glaube, dass", "Ich habe viele Pakete", "Also ähm"]) {
+    assert.ok(looksUnfinished(t), t);
+  }
+  for (const t of ["Ich war müde.", "Ja!", "Wie geht es dir?", "오늘 배송 많았어요.", ""]) {
+    assert.ok(!looksUnfinished(t), t);
+  }
+  assert.equal(waitMs("long"), 3000);
+  assert.equal(waitMs("x"), 1500);
 });
 
 test("지시문: 주제 상황과 '대화 중 교정하지 않기'가 들어간다", () => {

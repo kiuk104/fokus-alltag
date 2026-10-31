@@ -11,7 +11,7 @@
 //   ptt  : 누르고 말하기 — 누르는 동안만 마이크를 열고, 떼면 그때 대답한다. 차 안·밖처럼 시끄러운 곳용.
 
 import { supabase } from "./supabase";
-import { isFiller } from "./talk.js";
+import { isFiller, looksUnfinished, UNFINISHED_EXTRA_MS } from "./talk.js";
 
 const CALLS_URL = "https://api.openai.com/v1/realtime/calls";
 
@@ -57,7 +57,7 @@ const DROP_GRACE_MS = 6000;
  * opts: { instructions, mode, noise: "near"|"far", lang: "de"|"mix", guard: 추임새 무시, onEvent(ev), onState(state), onError(msg) }
  *   state: "connecting" | "live" | "closed"
  */
-export async function connectTalk({ instructions, mode = "auto", noise = "near", lang = "de", guard = true, voice, speed, onEvent, onState, onError }) {
+export async function connectTalk({ instructions, mode = "auto", noise = "near", lang = "de", guard = true, quietMs = 1500, voice, speed, onEvent, onState, onError }) {
   onState?.("connecting");
   const tk = await fetchToken({ instructions, mode, noise, lang, guard, voice, speed });
 
@@ -104,10 +104,15 @@ export async function connectTalk({ instructions, mode = "auto", noise = "near",
     // AI 가 먼저 말을 건다 (지시문의 "Beginne das Gespräch selbst")
     send({ type: "response.create" });
   };
-  // ── 추임새 무시 (자동 차례에서만) ──
+  // ── 추임새 무시 + 말 끝 기다리기 (자동 차례에서만) ──
   // 대답 중에 또 대답을 부탁하면 서버가 거절한다 → 대답 중이면 끝난 뒤에 부탁한다.
+  // 말 끝 기다리기(2026-10-31): 서버가 말끝을 감지해도(committed) 바로 대답하지 않고, 받아쓰기가 온 뒤 quietMs 만큼 조용해야 대답한다.
+  //   그 사이 다시 말이 시작되면(speech_started) 타이머를 지우고, 다음 받아쓰기 뒤에 다시 잰다 — 문장 중간에 쉬어도 끼어들지 않게.
+  //   덜 끝난 모양(쉼표·접속사로 끝남 — talk.js looksUnfinished)이면 UNFINISHED_EXTRA_MS 더 기다린다.
   let active = false;
   let pending = false;
+  let owed = false; // 대답해야 할 진짜 말이 쌓여 있다
+  let quiet = null; // 조용한 시간 타이머
   const waits = new Map(); // item_id → 받아쓰기 기다리는 타이머
   const reply = () => {
     if (active) { pending = true; return; }
@@ -115,12 +120,22 @@ export async function connectTalk({ instructions, mode = "auto", noise = "near",
     send({ type: "response.create" });
   };
   const guarding = () => guard && curMode !== "ptt";
-  const settle = (id, filler) => {
+  const clearQuiet = () => { if (quiet) { clearTimeout(quiet); quiet = null; } };
+  const afterQuiet = (ms) => {
+    clearQuiet();
+    quiet = setTimeout(() => { quiet = null; if (owed) { owed = false; reply(); } }, ms);
+  };
+  const settle = (id, filler, text = "") => {
     if (!waits.has(id)) return;
     clearTimeout(waits.get(id));
     waits.delete(id);
-    if (filler) send({ type: "conversation.item.delete", item_id: id }); // AI 가 앞 대화로도 보지 않게
-    else reply();
+    if (filler) {
+      send({ type: "conversation.item.delete", item_id: id }); // AI 가 앞 대화로도 보지 않게
+      if (owed) afterQuiet(quietMs); // 앞서 한 진짜 말은 여전히 대답해야 한다
+    } else {
+      owed = true;
+      afterQuiet(looksUnfinished(text) ? quietMs + UNFINISHED_EXTRA_MS : quietMs);
+    }
   };
   const guardEvent = (ev) => {
     switch (ev.type) {
@@ -129,14 +144,17 @@ export async function connectTalk({ instructions, mode = "auto", noise = "near",
         active = false;
         if (pending) { pending = false; reply(); }
         break;
+      case "input_audio_buffer.speech_started":
+        if (guarding()) clearQuiet(); // 다시 말하기 시작 — 대답을 미룬다
+        break;
       case "input_audio_buffer.committed":
-        if (guarding() && ev.item_id) waits.set(ev.item_id, setTimeout(() => settle(ev.item_id, false), GUARD_WAIT_MS));
+        if (guarding() && ev.item_id) waits.set(ev.item_id, setTimeout(() => settle(ev.item_id, false, ""), GUARD_WAIT_MS));
         break;
       case "conversation.item.input_audio_transcription.completed":
-        settle(ev.item_id, isFiller(ev.transcript));
+        settle(ev.item_id, isFiller(ev.transcript), ev.transcript);
         break;
       case "conversation.item.input_audio_transcription.failed":
-        settle(ev.item_id, false);
+        settle(ev.item_id, false, "");
         break;
       default:
     }
@@ -198,6 +216,8 @@ export async function connectTalk({ instructions, mode = "auto", noise = "near",
     /** 누르고 말하기 — 누름 */
     press() {
       if (curMode !== "ptt" || closed) return;
+      clearQuiet();
+      owed = false;
       // AI 가 말하는 중이면 끊고 내 차례로
       send({ type: "response.cancel" });
       send({ type: "output_audio_buffer.clear" });
@@ -242,6 +262,8 @@ export async function connectTalk({ instructions, mode = "auto", noise = "near",
       send({ type: "response.cancel" });
       send({ type: "output_audio_buffer.clear" });
       active = false;
+      clearQuiet();
+      owed = false;
       send({ type: "conversation.item.create", item: { type: "message", role: "user", content: [{ type: "input_text", text }] } });
       reply();
     },
@@ -258,6 +280,7 @@ export async function connectTalk({ instructions, mode = "auto", noise = "near",
       if (closed) return;
       closed = true;
       if (dropTimer) clearTimeout(dropTimer);
+      clearQuiet();
       waits.forEach((t) => clearTimeout(t));
       try { dc.close(); } catch { /* 이미 닫힘 */ }
       try { pc.close(); } catch { /* 이미 닫힘 */ }

@@ -12,7 +12,7 @@ import { useCallback, useEffect, useReducer, useRef, useState } from "react";
 import { connectTalk, rtSupported } from "../lib/realtime";
 import { usageNow, pickModel, recordUsage, MONTHLY_CAP } from "../lib/ai";
 import {
-  ASK_REPEAT, ASK_SLOW, TOPICS, STYLES, LANGS, VOICES, TONES, SPEEDS, DRIVE, DRIVE_RULE, continueRule, topicOf, talkInstructions, applyEvent, cleanLines, myLines, rtCost, transcribeCost, sumUsage,
+  ASK_REPEAT, ASK_SLOW, TOPICS, STYLES, LANGS, VOICES, TONES, SPEEDS, WAITS, waitMs, DRIVE, DRIVE_RULE, continueRule, topicOf, talkInstructions, applyEvent, cleanLines, myLines, rtCost, transcribeCost, sumUsage,
   TALK_MAX_MIN, TALK_WARN_MIN, clock,
 } from "../lib/talk";
 import TalkReview from "../components/TalkReview";
@@ -34,7 +34,7 @@ const writeJson = (k, v) => { try { if (v == null) localStorage.removeItem(k); e
 const linesReducer = (lines, ev) => (ev === "reset" ? [] : applyEvent(lines, ev));
 
 export default function Talk({ userId, today, month, onPatch, onClose, onError }) {
-  const [pref, setPref] = useState(() => ({ topic: "tag", mode: "auto", noise: "near", style: "flow", lang: "de", voice: "marin", tone: "freundlich", speed: "normal", filler: "ignore", pron: false, ...readJson(PREF_KEY, {}) }));
+  const [pref, setPref] = useState(() => ({ topic: "tag", mode: "auto", noise: "near", style: "flow", lang: "de", voice: "marin", tone: "freundlich", speed: "normal", filler: "ignore", wait: "normal", pron: false, ...readJson(PREF_KEY, {}) }));
   const [phase, setPhase] = useState("setup"); // setup | connecting | live | paused | review
   const [drive, setDrive] = useState(false); // 🚗 운전 모드 — 이번 대화에만
   const [run, setRun] = useState({ topic: null, sentences: [] }); // 이번 대화의 주제·연습 문장 (발음 연습을 정리 화면에서 바로 열 때 주제가 바뀐다)
@@ -235,6 +235,7 @@ export default function Talk({ userId, today, month, onPatch, onClose, onError }
         noise: c.noise,
         lang: c.lang,
         guard: c.filler !== "off",
+        quietMs: waitMs(c.wait),
         onEvent,
         onError: setErr,
         // 신호가 끊기면 정리로 가지 않고 "이어서" 를 기다린다 — 배송 중엔 터널·지하 주차장이 흔하다
@@ -537,9 +538,21 @@ function Setup({ pref, savePref, budget, last, connecting, onStart, onDrive, onR
       </div>
       <p className="muted tiny">
         {pref.filler === "off"
-          ? "AI 가 말하는 중에 소리를 내면 AI 가 멈추고, “음”만 해도 대답할 수 있어요."
-          : "AI 가 말하는 중에 “아~” 해도 멈추지 않고, “음…”만 말하면 대답하지 않고 기다려요. 대신 대답이 0.5초쯤 늦을 수 있어요. (자동 차례에서만)"}
+          ? "AI 가 말하는 중에 소리를 내면 AI 가 멈추고, “음”만 해도 대답할 수 있어요. 말이 덜 끝나도 끼어들 수 있어요."
+          : "AI 가 말하는 중에 “아~” 해도 멈추지 않고, “음…”만 말하면 대답하지 않고 기다려요. (자동 차례에서만)"}
       </p>
+
+      {pref.filler !== "off" && pref.mode === "auto" && (
+        <>
+          <div className="cr-label">말 끝 기다리기 <span className="muted">— 이만큼 조용하면 대답</span></div>
+          <div className="chips">
+            {WAITS.map((w) => (
+              <button key={w.key} className={`chip ${pref.wait === w.key ? "on" : ""}`} onClick={() => savePref({ wait: w.key })}>{w.label} — {w.ms / 1000}초</button>
+            ))}
+          </div>
+          <p className="muted tiny">문장 중간에 잠깐 쉬어도 끼어들지 않아요. 쉼표나 „und“ 로 끝난 것 같으면 2초 더 기다려요. 그 대신 대답이 그만큼 늦게 시작해요.</p>
+        </>
+      )}
 
       <div className="cr-label">폰 위치</div>
       <div className="chips">

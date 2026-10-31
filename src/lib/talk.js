@@ -277,6 +277,35 @@ export function isFiller(text) {
   return words.every((w) => FILLER.test(w));
 }
 
+/**
+ * 말이 덜 끝난 모양인가 (2026-10-31) — 말끝을 감지했는데 문장 중간이었던 경우. 쉼표·접속사·관사로 끝나거나 마침표가 없으면 더 기다린다.
+ * "Ich war gestern bei dem Kunden und" / "그리고" / "Weil ich," → true.  "Ich war müde." / "Ja" → false.
+ */
+const UNFINISHED_LAST = new Set([
+  "und", "oder", "aber", "weil", "dass", "wenn", "ob", "denn", "sondern", "also", "dann", "als", "obwohl", "damit",
+  "mit", "für", "zu", "in", "an", "auf", "bei", "nach", "von", "aus", "über", "unter", "vor", "durch",
+  "der", "die", "das", "den", "dem", "des", "ein", "eine", "einen", "einem", "einer", "kein", "keine",
+  "ich", "er", "sie", "es", "wir", "ihr", "mein", "meine", "sehr", "nicht", "so", "ganz",
+  "그리고", "근데", "그래서", "그러니까", "그런데", "하지만", "왜냐하면", "그냥", "약간", "좀", "되게", "진짜",
+]);
+export function looksUnfinished(text) {
+  const t = String(text || "").trim();
+  if (!t) return false;
+  if (/[,:;\-–—…]$/.test(t)) return true;
+  const words = t.toLowerCase().replace(/[.!?…"„“”]+$/g, "").split(/\s+/).filter(Boolean);
+  const last = words[words.length - 1] || "";
+  if (UNFINISHED_LAST.has(last) || FILLER.test(last)) return true;
+  return !/[.!?]["“”]?$/.test(t); // 받아쓰기는 보통 마침표를 찍는다 — 없으면 중간에 끊긴 것일 수 있다
+}
+
+/** 말 끝 기다리기 (2026-10-31) — 받아쓰기가 온 뒤 이만큼 조용하면 대답. 덜 끝난 모양이면 UNFINISHED_EXTRA_MS 더 */
+export const WAITS = [
+  { key: "normal", label: "보통", ms: 1500 },
+  { key: "long", label: "길게", ms: 3000 },
+];
+export const UNFINISHED_EXTRA_MS = 2000;
+export const waitMs = (key) => (WAITS.find((w) => w.key === key) || WAITS[0]).ms;
+
 /** 빈 줄(소리만 들어오고 말이 없던 것)은 뺀 대화록 */
 export const cleanLines = (lines) => (lines || []).filter((l) => String(l.text || "").trim());
 
