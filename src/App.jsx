@@ -301,6 +301,7 @@ export default function App() {
           onPatch={(patch) => patchDay(today, patch)}
           onClose={() => setTalkOpen(false)}
           onError={setError}
+          autoStart
         />
       )}
 

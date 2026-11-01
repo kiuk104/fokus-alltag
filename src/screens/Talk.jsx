@@ -12,7 +12,7 @@ import { useCallback, useEffect, useReducer, useRef, useState } from "react";
 import { connectTalk, rtSupported } from "../lib/realtime";
 import { usageNow, pickModel, recordUsage, MONTHLY_CAP } from "../lib/ai";
 import {
-  ASK_REPEAT, ASK_SLOW, TOPICS, SWITCHABLE, switchText, entryText, restoreLines, STYLES, LANGS, VOICES, TONES, SPEEDS, WAITS, waitMs, DRIVE, DRIVE_RULE, continueRule, topicOf, talkInstructions, applyEvent, cleanLines, myLines, rtCost, transcribeCost, sumUsage,
+  ASK_REPEAT, ASK_SLOW, TOPICS, SWITCHABLE, switchText, entryText, restoreLines, STYLES, LANGS, VOICES, TONES, SPEEDS, WAITS, waitMs, EXPLAINS, DRIVE, DRIVE_RULE, continueRule, topicOf, talkInstructions, applyEvent, cleanLines, myLines, rtCost, transcribeCost, sumUsage,
   TALK_MAX_MIN, TALK_WARN_MIN, clock,
 } from "../lib/talk";
 import TalkReview from "../components/TalkReview";
@@ -33,8 +33,9 @@ const writeJson = (k, v) => { try { if (v == null) localStorage.removeItem(k); e
 
 const linesReducer = (lines, ev) => (ev === "reset" ? [] : ev?.type === "__restore" ? ev.lines : applyEvent(lines, ev));
 
-export default function Talk({ userId, today, month, onPatch, onClose, onError }) {
-  const [pref, setPref] = useState(() => ({ topic: "tag", mode: "auto", noise: "near", style: "flow", lang: "de", voice: "marin", tone: "freundlich", speed: "normal", filler: "ignore", wait: "normal", pron: false, ...readJson(PREF_KEY, {}) }));
+/** autoStart: 오늘 화면 [🎙 대화] 에서 — 고르기 화면을 건너뛰고 저장된 설정으로 바로 연결한다 (2026-11-01) */
+export default function Talk({ userId, today, month, onPatch, onClose, onError, autoStart = false }) {
+  const [pref, setPref] = useState(() => ({ topic: "tag", mode: "auto", noise: "near", style: "flow", lang: "de", voice: "marin", tone: "freundlich", speed: "normal", filler: "ignore", wait: "normal", pron: false, explain: "ko", ...readJson(PREF_KEY, {}) }));
   const [phase, setPhase] = useState("setup"); // setup | connecting | live | paused | review
   const [drive, setDrive] = useState(false); // 🚗 운전 모드 — 이번 대화에만
   const [run, setRun] = useState({ topic: null, sentences: [], entry: "" }); // 이번 대화의 주제·연습 문장·오늘 쓴 글 (발음 연습을 정리 화면에서 바로 열 때 주제가 바뀐다)
@@ -97,6 +98,16 @@ export default function Talk({ userId, today, month, onPatch, onClose, onError }
 
   const priorRef = useRef(prior);
   priorRef.current = prior;
+  // 바로 시작 (오늘 화면에서) — 예산 확인이 끝나면 한 번만. 정리하지 않은 대화가 남아 있으면 건너뛰지 않는다(알림을 봐야 한다)
+  const autoRef = useRef(autoStart);
+  useEffect(() => {
+    if (!autoRef.current || !budget || phase !== "setup") return;
+    autoRef.current = false;
+    if (budget.block || !rtSupported() || (last && myLines(last.lines).length > 0)) return;
+    start({ driveMode: false });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [budget]);
+
   const snapshot = (model) => ({
     lines: cleanLines(linesRef.current), topic: runRef.current.topic || pref.topic, seconds: total.current.sec, cost: total.current.cost, model, day: today,
     prior: priorRef.current?.lines || [], continuedFrom: priorRef.current?.from || null,
@@ -276,7 +287,7 @@ export default function Talk({ userId, today, month, onPatch, onClose, onError }
     setPhase("connecting");
     try {
       const s = await connectTalk({
-        instructions: talkInstructions(c.topic, { month, style: c.style, tone: c.tone, pron: c.pron, sentences: r.sentences, entry: r.entry, extra }),
+        instructions: talkInstructions(c.topic, { month, style: c.style, tone: c.tone, pron: c.pron, sentences: r.sentences, entry: r.entry, explain: c.explain, extra }),
         voice: c.voice,
         speed: SPEEDS.find((x) => x.key === c.speed)?.value || 1,
         mode: c.mode,
@@ -305,7 +316,7 @@ export default function Talk({ userId, today, month, onPatch, onClose, onError }
   // 교정 방식은 대화 중에도 바꾼다 — 지시문만 갈아 끼운다
   const setStyle = (style) => {
     savePref({ style });
-    sess.current?.setInstructions(talkInstructions(runRef.current.topic || pref.topic, { month, style, tone: pref.tone, pron: pref.pron, sentences: runRef.current.sentences, entry: runRef.current.entry }));
+    sess.current?.setInstructions(talkInstructions(runRef.current.topic || pref.topic, { month, style, tone: pref.tone, pron: pref.pron, sentences: runRef.current.sentences, entry: runRef.current.entry, explain: pref.explain }));
   };
 
   // 주제 바꾸기 (대화 중, 2026-10-31) — 지시문을 새 장면으로 갈고, 글 부탁으로 "지금 바꿔" 를 넣는다. 말로 바꾸는 건 지시문 SWITCH_RULE 이 맡는다
@@ -314,7 +325,7 @@ export default function Talk({ userId, today, month, onPatch, onClose, onError }
     setRun(r);
     runRef.current = r;
     const c = drive ? { ...pref, ...DRIVE } : pref;
-    sess.current?.setInstructions(talkInstructions(key, { month, style: c.style, tone: c.tone, pron: c.pron, sentences: r.sentences, extra: drive ? DRIVE_RULE : "" }));
+    sess.current?.setInstructions(talkInstructions(key, { month, style: c.style, tone: c.tone, pron: c.pron, sentences: r.sentences, explain: c.explain, extra: drive ? DRIVE_RULE : "" }));
     sess.current?.ask(switchText(key));
   };
 
@@ -322,6 +333,22 @@ export default function Talk({ userId, today, month, onPatch, onClose, onError }
     savePref({ mode });
     sess.current?.setMode(mode);
     setHolding(false);
+  };
+
+  // ⚙ 대화 중 설정으로 — 아직 내 말이 없으면(바로 시작했는데 설정을 바꾸고 싶을 때) 기록 없이 고르기 화면으로, 있으면 정리로
+  const toSetup = () => {
+    if (myLines(linesRef.current).length === 0) {
+      const s = sess.current;
+      sess.current = null;
+      s?.close();
+      try { wake.current?.release(); } catch { /* 이미 풀림 */ }
+      recordSegment(userId, s?.model);
+      dispatch("reset");
+      setAiTalking(false); setHearing(false); setHolding(false);
+      setPhase("setup");
+    } else {
+      finish();
+    }
   };
 
   const toggleMute = () => { const m = !muted; setMuted(m); sess.current?.mute(m); };
@@ -353,6 +380,9 @@ export default function Talk({ userId, today, month, onPatch, onClose, onError }
             <b>{drive ? "🚗 운전 모드" : "🎙 실시간 대화"}</b>{" "}
             {phase === "live" && !drive && <span className={`muted tiny ${warn ? "tk-warn" : ""}`}>{clock(sec)} / {TALK_MAX_MIN}:00 · ${(total.current.cost + cost.current).toFixed(3)}</span>}
           </div>
+          {phase === "live" && !drive && (
+            <button className="icon-btn" onClick={toSetup} aria-label="설정" title="끝내고 설정으로">⚙</button>
+          )}
           <button className="icon-btn" onClick={() => (sess.current ? finish() : phase === "paused" ? setPhase("review") : onClose())} aria-label="닫기">✕</button>
         </header>
 
@@ -593,6 +623,18 @@ function Setup({ pref, savePref, budget, last, connecting, onStart, onDrive, onR
       {pref.style === "teacher" && (
         <p className="muted tiny">틀리면 AI 가 바로 끊고 “혹시 이 말 하려던 거예요? — … 이렇게 말하는 게 맞아요” 하고 확인한 뒤, 한 번 따라 말하게 해요. 끝나고 정리도 그대로 해요.</p>
       )}
+
+      <div className="cr-label">설명 언어 <span className="muted">— 교정·문법·발음 팁</span></div>
+      <div className="chips">
+        {EXPLAINS.map((x) => (
+          <button key={x.key} className={`chip ${pref.explain === x.key ? "on" : ""}`} onClick={() => savePref({ explain: x.key })}>{x.label} — {x.desc}</button>
+        ))}
+      </div>
+      <p className="muted tiny">
+        {pref.explain === "de"
+          ? "설명도 짧고 쉬운 독일어로 해요 — 그 자체가 듣기 연습. 한국어는 내가 한국어로 말한 단어를 받아 줄 때만."
+          : "AI 목소리가 한국어를 독일어 억양으로 읽어 알아듣기 힘들면 목소리를 바꿔 보거나(Marin · Cedar 가 나은 편) 쉬운 독일어로 바꿔 보세요."}
+      </p>
 
       {!topicOf(pref.topic).coach && (
         <div className="chips">

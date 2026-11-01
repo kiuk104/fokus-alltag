@@ -251,5 +251,11 @@ test("설명은 한국어: 언어 규칙이 맨 앞(상황 전)과 맨 끝에 �
     assert.ok(s.indexOf("SPRACHREGEL") < s.indexOf("Situation:"), k);
     assert.match(s, /설명·교정·발음 팁/);
     assert.match(s, /Erklärungen IMMER auf Koreanisch \(설명은 항상 한국어로\)[^\n]*$/);
+    assert.match(s, /AUSSPRACHE DES KOREANISCHEN/);
+    // 쉬운 독일어 설명
+    const d = talkInstructions(k, { explain: "de", style: "teacher" });
+    assert.match(d, /EINFACHEM Deutsch/);
+    assert.doesNotMatch(d, /설명은 항상 한국어로/);
+    assert.match(d, /Erklärungen auf EINFACHEM, langsamem Deutsch[^\n]*$/);
   }
 });

@@ -184,6 +184,26 @@ const LANG_RULE = [
     "Den richtigen deutschen Satz sagst du dabei auf Deutsch, eingebettet in den koreanischen Satz.",
   "언어 규칙: 대화와 예문은 독일어로. 설명·교정·발음 팁·뜻 설명·“이 말 하려던 거예요?” 같은 확인은 반드시 한국어로 말한다. " +
     "예: „동사는 두 번째 자리에 와요. ‘Heute habe ich viel gearbeitet.’ 이렇게요. 한 번 따라 해 볼래요?“",
+  // 한국어를 독일어 억양으로 읽던 문제 (2026-11-01 실기기)
+  "AUSSPRACHE DES KOREANISCHEN: Wenn du Koreanisch sprichst, sprich es wie eine koreanische Muttersprachlerin – natürliche koreanische Laute, Rhythmus und Satzmelodie, " +
+    "KEIN deutscher Akzent, keine deutsche Betonung. Wechsle beim Sprachwechsel auch die Aussprache komplett.",
+].join("\n");
+
+/**
+ * 설명 언어 (2026-11-01) — 한국어 설명을 독일어 억양으로 읽어서 알아듣기 힘들면 "쉬운 독일어" 로.
+ * B1→B2 학습자에겐 쉬운 독일어 설명도 그 자체가 연습이다.
+ */
+export const EXPLAINS = [
+  { key: "ko", label: "한국어", desc: "설명·교정은 한국어로" },
+  { key: "de", label: "쉬운 독일어", desc: "짧고 느리게, A2 수준 단어로" },
+];
+const LANG_RULE_DE = [
+  "SPRACHREGEL (sehr wichtig): Alles auf DEUTSCH – auch Erklärungen, Korrekturen und Aussprache-Tipps. " +
+    "Erkläre in EINFACHEM Deutsch (Niveau A2, kurze Hauptsätze, langsam, höchstens zwei Sätze pro Erklärung), " +
+    "z. B. „Das Verb steht an Position zwei: ‚Heute habe ich viel gearbeitet.‘ Sag es bitte noch einmal.“",
+  "Überall, wo diese Regeln koreanische Beispiel-Erklärungen zeigen, sagst du dasselbe stattdessen auf einfachem Deutsch. " +
+    "Koreanisch sprichst du NUR, wenn er ein koreanisches Wort benutzt und du die deutsche Entsprechung nennst (das koreanische Wort kurz wiederholen ist okay), " +
+    "oder wenn er dich ausdrücklich auf Koreanisch um Hilfe bittet.",
 ].join("\n");
 
 // 흐름 유지 (기본) — 기획 문서 요구사항 5
@@ -243,7 +263,7 @@ const PRON_RULE =
  * Realtime 모델에게 줄 지시문. 서버(api/talk-token.js)가 그대로 세션에 넣는다.
  * 요구사항 1·3·5: 한국인 학습자 · 한국어 섞어 말해도 됨 · 대화 중엔 흐름 유지(style "flow") 또는 바로 교정(style "teacher").
  */
-export function talkInstructions(topicKey, { month = 1, style = "flow", tone = "freundlich", pron = false, sentences = [], entry = "", extra = "" } = {}) {
+export function talkInstructions(topicKey, { month = 1, style = "flow", tone = "freundlich", pron = false, sentences = [], entry = "", explain = "ko", extra = "" } = {}) {
   const t0 = topicOf(topicKey);
   // 📝 오늘 쓴 기록: 글이 있으면 그 글이 장면, 없으면 "오늘 하루"로 (화면이 미리 알려 준다)
   const t = t0.entry ? (entry ? { ...t0, scene: entryScene(entry) } : topicOf("tag")) : t0;
@@ -251,7 +271,7 @@ export function talkInstructions(topicKey, { month = 1, style = "flow", tone = "
   return [
     "Du bist ein freundlicher Gesprächspartner für einen koreanischen Erwachsenen, der Deutsch lernt " +
       `(Niveau ${level}). Er lebt seit Jahren in Deutschland und arbeitet als Lieferfahrer bei REWE.`,
-    LANG_RULE,
+    explain === "de" ? LANG_RULE_DE : LANG_RULE,
     `Situation: ${t.scene}`,
     `Beginne das Gespräch selbst: ${t.first}`,
     "",
@@ -267,7 +287,9 @@ export function talkInstructions(topicKey, { month = 1, style = "flow", tone = "
       "Wenn seine Äußerung unvollständig klingt (endet mit einem Füllwort oder mitten im Satz), sag nur ganz kurz „Mhm?“ oder „Ja …?“ und lass ihn weiterreden.",
     "- Sei ermutigend, aber nicht übertrieben.",
     extra ? `\n${extra}` : "",
-    "\nNoch einmal: Erklärungen IMMER auf Koreanisch (설명은 항상 한국어로), Gespräch und Beispielsätze auf Deutsch.",
+    explain === "de"
+      ? "\nNoch einmal: Erklärungen auf EINFACHEM, langsamem Deutsch – kurz. Koreanisch nur für einzelne Wörter, die er auf Koreanisch gesagt hat."
+      : "\nNoch einmal: Erklärungen IMMER auf Koreanisch (설명은 항상 한국어로) – mit natürlicher koreanischer Aussprache, ohne deutschen Akzent. Gespräch und Beispielsätze auf Deutsch.",
   ].join("\n").trim();
 }
 
