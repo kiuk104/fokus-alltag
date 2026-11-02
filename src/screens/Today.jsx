@@ -130,7 +130,8 @@ export default function Today({ program, today, days, onPatch, onGoEntry, onList
               <button className="step-check" onClick={() => toggle(s.key)} aria-pressed={on} aria-label={t("today.check", { title })}>
                 <span className={`dot ${s.dot}`}>{on ? "✓" : ""}</span>
               </button>
-              <div className="step-body" onClick={() => toggle(s.key)}>
+              {/* 말하기 카드는 누르면 바로 🎙 대화로 (2026-11-01). 완료 표시는 왼쪽 동그라미로만 */}
+              <div className="step-body" onClick={() => (s.key === "speak" ? onTalk() : toggle(s.key))}>
                 <div className="step-title">
                   {title} <span className="step-min">{t(`today.step.${s.key}.min`)}</span>
                   {skipped && <span className="step-min">{t("today.skipped")}</span>}
