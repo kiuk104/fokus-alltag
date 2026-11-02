@@ -25,14 +25,16 @@ const env = (...names) => {
 // 화면(src/lib/talk.js VOICES)에서 고를 수 있는 목소리 — 이 밖의 값은 기본 목소리로
 const VOICE_OK = new Set(["marin", "cedar", "coral", "sage", "ash", "verse", "alloy", "ballad", "echo", "shimmer"]);
 // 지시문 길이 상한 — 긴 글을 실어 보내 토큰을 쓰는 걸 막는다.
-// 운전 모드 + 이어서 + 선생님 + 발음이 겹치면 5,500자 안팎 — 잘리면 끝의 "설명은 한국어" 상기가 빠진다
-const MAX_INSTRUCTIONS = 8000;
+// 운전 모드 + 이어서 + 선생님 + 발음 + 오늘 쓴 글(1,000자)이 겹치면 8,100자 안팎(2026-11-02) — 잘리면 끝의 "설명은 한국어" 상기가 빠진다
+const MAX_INSTRUCTIONS = 9000;
 
 // 받아쓰기 힌트 — 고쳐 적지 말 것 (기획 요구사항 4)
 const TRANSCRIBE_EXACT = "Schreibe genau auf, was gesagt wurde – auch grammatische Fehler, falsche Artikel und Endungen. Nichts korrigieren.";
 const TRANSCRIBE_PROMPT = {
   de: `Deutsch eines koreanischen Lernenden. ${TRANSCRIBE_EXACT}`,
-  mix: `Deutsch eines Lernenden, manchmal mit einzelnen koreanischen Wörtern. ${TRANSCRIBE_EXACT} Koreanische Wörter in Hangul schreiben.`,
+  // 2026-11-02: "Sonntag" 을 "좋다" 로 적던 문제 — 애매하면 독일어로
+  mix: `Deutsch eines koreanischen Lernenden, selten mit einzelnen koreanischen Wörtern. ${TRANSCRIBE_EXACT} ` +
+    "Nur eindeutig koreanische Wörter in Hangul schreiben (z. B. 소포, 택배). Im Zweifel ist es Deutsch – ähnlich klingende deutsche Wörter bleiben Deutsch (Sonntag, nicht 좋다).",
 };
 
 // 브라우저(src/lib/realtime.js turnDetection)와 같은 값.

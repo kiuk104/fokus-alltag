@@ -64,7 +64,7 @@ export const SWITCHABLE = TOPICS.filter((t) => !t.coach && !t.entry);
  * 📝 오늘 쓴 기록 → 장면 글 (2026-10-31). entries: 오늘 alltag_entries(대화 기록 제외).
  * 교정이 있으면 고친 글(b1)을, 없으면 쓴 그대로. "[Level 1]" 같은 칸 이름은 뗀다. 너무 길면 maxChars 에서 자른다.
  */
-export function entryText(entries, maxChars = 1200) {
+export function entryText(entries, maxChars = 1000) {
   const texts = (entries || [])
     .filter((e) => e && e.template !== TALK_TEMPLATE)
     .map((e) => e.correction?.data?.b1?.text || e.raw_text || "")
@@ -218,7 +218,8 @@ const TEACHER_RULES = [
     "oder du nicht sicher bist, was er meint, unterbrich freundlich, BEVOR du inhaltlich antwortest:",
   "  1. Frag auf Koreanisch nach, ob du ihn richtig verstanden hast, und sag den korrekten deutschen Satz langsam und deutlich. " +
     "Zum Beispiel: „혹시 이 말 하려던 거예요? — Ich habe die Pakete schon geliefert. 이렇게 말하는 게 맞아요.“",
-  "  2. Erkläre in EINEM kurzen koreanischen Satz, was falsch war (z. B. „동사는 두 번째 자리에 와요“).",
+  "  2. Erkläre in EINEM kurzen koreanischen Satz, was falsch war (z. B. „동사는 두 번째 자리에 와요“) – aber NUR, wenn wirklich etwas grammatisch falsch war. " +
+    "Fehlte nur ein Wort oder hat er ein koreanisches Wort benutzt, gib nur das Wort und den Satz, ohne Grammatikerklärung. Erfinde keine Regel, die nicht zum Fehler passt.",
   "  3. Bitte ihn, den richtigen Satz einmal laut nachzusprechen. Wenn er es (fast) richtig wiederholt, lobe kurz und mach mit dem Gespräch auf Deutsch weiter. " +
     "Wenn er sagt, dass er etwas anderes meinte, frag nach und gib dann den passenden Satz.",
   "- Pro Antwort höchstens EIN Fehler — der wichtigste. Kleine Fehler (Aussprache, ein Endungsfehler, der das Verständnis nicht stört) ignorierst du.",
@@ -280,7 +281,9 @@ export function talkInstructions(topicKey, { month = 1, style = "flow", tone = "
     `- Tonfall: ${toneOf(tone).rule}`,
     ...(t.coach ? coachRules(sentences) : [...(style === "teacher" ? TEACHER_RULES : FLOW_RULES), ...(pron ? [PRON_RULE] : []), SWITCH_RULE]),
     "- Wenn er mitten im deutschen Satz ein koreanisches Wort benutzt (z. B. „Ich möchte 소포 abholen“), " +
-      "nenne kurz das deutsche Wort mit Artikel („소포 – das Paket.“) und mach dann normal weiter.",
+      "nenne kurz das deutsche Wort mit Artikel („소포 – das Paket.“) und sag den ganzen Satz einmal auf Deutsch. " +
+      "Nenne so einen gemischten Satz NIE „korrekt“ und lobe ihn nicht als fertig – erst der deutsche Satz ist das Ziel. Dann normal weiter.",
+    "- Wenn du nicht sicher bist, ob ein Wort Deutsch oder Koreanisch war (z. B. „Sonntag“ klingt wie „좋다“), frag kurz auf Koreanisch nach („‘Sonntag’ 말한 거예요?“), statt zu raten.",
     "- Wenn er auf Koreanisch fragt, wie man etwas sagt, antworte ganz kurz auf Koreanisch mit dem deutschen Ausdruck und kehre dann zum Deutschen zurück.",
     "- Wenn er „ähm“ sagt oder eine Pause macht, warte geduldig. Reagiere nicht auf Hintergrundgeräusche oder Gespräche anderer Leute.",
     "- Reine Füllwörter („ähm“, „hmm“, „mhm“, koreanisch „음“, „으음“, „아“, „어“) sind KEINE Antwort und keine Unterbrechung – ignoriere sie und sprich ggf. einfach weiter. " +
