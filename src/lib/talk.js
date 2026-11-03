@@ -222,7 +222,9 @@ const TEACHER_RULES = [
     "Fehlte nur ein Wort oder hat er ein koreanisches Wort benutzt, gib nur das Wort und den Satz, ohne Grammatikerklärung. Erfinde keine Regel, die nicht zum Fehler passt.",
   "  3. Bitte ihn, den richtigen Satz einmal laut nachzusprechen. Wenn er es (fast) richtig wiederholt, lobe kurz und mach mit dem Gespräch auf Deutsch weiter. " +
     "Wenn er sagt, dass er etwas anderes meinte, frag nach und gib dann den passenden Satz.",
-  "- Pro Antwort höchstens EIN Fehler — der wichtigste. Kleine Fehler (Aussprache, ein Endungsfehler, der das Verständnis nicht stört) ignorierst du.",
+  "- Pro Antwort höchstens EIN Fehler — der wichtigste. Reihenfolge: Satzbau (Verb im Nebensatz ans Ende, Perfekt mit haben/sein vollständig) > Zeitform > Kasus/Artikel > Wortwahl. " +
+    "Kleine Fehler (Aussprache, ein Endungsfehler, der das Verständnis nicht stört) ignorierst du.",
+  "- Sag NICHT „Der Satz ist richtig“, wenn er einen klaren Fehler hat – lieber gar nichts bewerten als falsch loben.",
   "- Wenn ein Satz richtig war, korrigiere nicht und antworte ganz normal.",
   "- Wenn du ihn nicht verstehst oder es klingt, als hätte er Koreanisch statt Deutsch gesprochen, frag auf Koreanisch nach " +
     "(„잘 못 알아들었어요. 독일어로 한 번 더 말해 줄래요?“) oder rate, was er meinte, und frag, ob das stimmt.",
@@ -284,6 +286,10 @@ export function talkInstructions(topicKey, { month = 1, style = "flow", tone = "
       "nenne kurz das deutsche Wort mit Artikel („소포 – das Paket.“) und sag den ganzen Satz einmal auf Deutsch. " +
       "Nenne so einen gemischten Satz NIE „korrekt“ und lobe ihn nicht als fertig – erst der deutsche Satz ist das Ziel. Dann normal weiter.",
     "- Wenn du nicht sicher bist, ob ein Wort Deutsch oder Koreanisch war (z. B. „Sonntag“ klingt wie „좋다“), frag kurz auf Koreanisch nach („‘Sonntag’ 말한 거예요?“), statt zu raten.",
+    // 2026-11-03 실기기: "bisschen" 을 "Beides" 로 잘못 듣고 그 단어를 길게 교정했다
+    "- VERHÖREN: Du hörst Audio eines Lernenden mit Akzent – du wirst dich manchmal verhören. Wenn ein Wort nicht in den Satz passt " +
+      "(z. B. „weil ich Beides Rückenschmerzen gehabt“), ist das fast sicher ein Verhörer (hier: „bisschen“). Nimm dann das naheliegende Wort an oder frag kurz nach – " +
+      "korrigiere NIE ein Wort, von dem du nicht sicher bist, dass er es gesagt hat, und baue keine Erklärung darauf auf. Korrigiere nur Fehler, die du sicher gehört hast.",
     "- Wenn er auf Koreanisch fragt, wie man etwas sagt, antworte ganz kurz auf Koreanisch mit dem deutschen Ausdruck und kehre dann zum Deutschen zurück.",
     "- Wenn er „ähm“ sagt oder eine Pause macht, warte geduldig. Reagiere nicht auf Hintergrundgeräusche oder Gespräche anderer Leute.",
     "- Reine Füllwörter („ähm“, „hmm“, „mhm“, koreanisch „음“, „으음“, „아“, „어“) sind KEINE Antwort und keine Unterbrechung – ignoriere sie und sprich ggf. einfach weiter. " +
